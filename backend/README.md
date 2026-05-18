@@ -14,6 +14,7 @@ backend/
 │   ├── config.py
 │   ├── routes/
 │   │   ├── __init__.py
+│   │   ├── detections.py
 │   │   ├── health.py
 │   │   └── webhook.py
 │   ├── services/
@@ -216,6 +217,47 @@ uvicorn app.main:app --reload
 ```
 
 When a risky secret is detected, the backend stores it in Supabase first. If storage succeeds, it sends safe fields such as file path, secret type, masked value, severity, confidence score, AI reasoning, and recommendation to n8n.
+
+## Dashboard API Routes
+
+The backend now exposes safe JSON APIs that a future React dashboard can use to read detections and statistics from Supabase. These routes never return raw secret values.
+
+Available routes:
+
+```text
+GET /api/detections
+GET /api/detections/recent
+GET /api/stats/summary
+GET /api/stats/severity
+GET /api/stats/secret-types
+GET /api/stats/trends
+PATCH /api/detections/{id}/status
+```
+
+`GET /api/detections` supports optional filters:
+
+```text
+status=open
+severity=HIGH
+repo=username/repo
+limit=20
+```
+
+Example:
+
+```text
+GET /api/detections?severity=HIGH&status=open&limit=20
+```
+
+`PATCH /api/detections/{id}/status` accepts:
+
+```json
+{
+  "status": "resolved"
+}
+```
+
+Allowed statuses are `open`, `resolved`, and `dismissed`.
 
 Example log output:
 
