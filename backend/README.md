@@ -21,6 +21,7 @@ backend/
 │   │   ├── ai_service.py
 │   │   ├── database_service.py
 │   │   ├── github_service.py
+│   │   ├── n8n_service.py
 │   │   ├── scanner_service.py
 │   │   └── webhook_processor.py
 │   └── utils/
@@ -186,6 +187,35 @@ uvicorn app.main:app --reload
 The `SUPABASE_SERVICE_ROLE_KEY` should only be used by the backend. Do not expose it in frontend code. Future dashboard phases can read these detection records without ever needing raw secrets.
 
 On Windows ARM64, the backend can use the Supabase REST fallback if the `supabase` package is skipped during installation.
+
+## n8n Webhook Setup
+
+After a risky detection is stored in Supabase, FastAPI can send the stored masked detection details to an n8n webhook. n8n can later handle automation and alerting. Raw secret values are never sent to n8n.
+
+To set up n8n:
+
+1. Create an n8n workflow.
+2. Add a Webhook Trigger node.
+3. Copy the production webhook URL.
+4. Add it to `backend/.env`:
+
+```text
+N8N_WEBHOOK_URL=your_n8n_webhook_url_here
+```
+
+5. Install backend dependencies:
+
+```cmd
+python -m pip install -r requirements.txt
+```
+
+6. Run the backend:
+
+```cmd
+uvicorn app.main:app --reload
+```
+
+When a risky secret is detected, the backend stores it in Supabase first. If storage succeeds, it sends safe fields such as file path, secret type, masked value, severity, confidence score, AI reasoning, and recommendation to n8n.
 
 Example log output:
 

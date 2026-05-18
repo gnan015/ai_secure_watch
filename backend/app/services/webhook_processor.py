@@ -1,6 +1,7 @@
 from app.services.ai_service import analyze_secret_with_ai
 from app.services.database_service import insert_detection, should_store_detection
 from app.services.github_service import extract_added_lines, fetch_commit_diff
+from app.services.n8n_service import send_detection_to_n8n
 from app.services.scanner_service import scan_added_lines
 
 
@@ -89,8 +90,15 @@ def process_github_push(parsed_data: dict, original_payload: dict) -> None:
 
                 if stored_detection.get("stored") is False:
                     print("Detection storage failed")
+                    print("Detection not sent to n8n because storage failed")
                 else:
                     print("Detection stored successfully")
+                    n8n_success = send_detection_to_n8n(stored_detection)
+
+                    if n8n_success:
+                        print("n8n notification completed")
+                    else:
+                        print("n8n notification failed")
 
                 print(f"File: {detection_record['file_path']}")
                 print(f"Secret Type: {detection_record['secret_type']}")
