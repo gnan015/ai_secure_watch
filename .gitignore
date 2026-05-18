@@ -22,3 +22,9 @@ Thumbs.db
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+
+# Frontend
+node_modules/
+dashboard/node_modules/
+dist/
+dashboard/dist/
