@@ -19,6 +19,7 @@ backend/
 │   ├── services/
 │   │   ├── __init__.py
 │   │   ├── ai_service.py
+│   │   ├── database_service.py
 │   │   ├── github_service.py
 │   │   ├── scanner_service.py
 │   │   └── webhook_processor.py
@@ -30,6 +31,7 @@ backend/
 │       └── signature.py
 ├── .env.example
 ├── requirements.txt
+├── supabase_schema.sql
 └── README.md
 ```
 
@@ -150,6 +152,40 @@ Gemini returns structured risk information:
 Allowed risk levels are `CRITICAL`, `HIGH`, `MEDIUM`, `LOW`, and `IGNORE`.
 
 If Gemini fails or `GEMINI_API_KEY` is missing, the backend does not crash. It returns a medium-risk fallback so the detection can still be reviewed manually. Raw secret values are not printed in logs.
+
+On Windows ARM64, the backend can use the Gemini REST fallback if the `google-genai` package is skipped during installation.
+
+## Supabase Database Setup
+
+Risky detections can now be stored in Supabase PostgreSQL. The backend stores detection records for later dashboard views, but it only stores `masked_value`. Raw secret values must never be stored in the database.
+
+To set up Supabase:
+
+1. Create a Supabase project.
+2. Open the Supabase SQL Editor.
+3. Run the SQL in `supabase_schema.sql`.
+4. Add these values to `backend/.env`:
+
+```text
+SUPABASE_URL=your_supabase_project_url_here
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key_here
+```
+
+5. Install backend dependencies:
+
+```cmd
+python -m pip install -r requirements.txt
+```
+
+6. Run the backend:
+
+```cmd
+uvicorn app.main:app --reload
+```
+
+The `SUPABASE_SERVICE_ROLE_KEY` should only be used by the backend. Do not expose it in frontend code. Future dashboard phases can read these detection records without ever needing raw secrets.
+
+On Windows ARM64, the backend can use the Supabase REST fallback if the `supabase` package is skipped during installation.
 
 Example log output:
 

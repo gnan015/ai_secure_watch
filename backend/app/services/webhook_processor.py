@@ -1,4 +1,5 @@
 from app.services.ai_service import analyze_secret_with_ai
+from app.services.database_service import insert_detection, should_store_detection
 from app.services.github_service import extract_added_lines, fetch_commit_diff
 from app.services.scanner_service import scan_added_lines
 
@@ -57,5 +58,46 @@ def process_github_push(parsed_data: dict, original_payload: dict) -> None:
             print(f"Confidence: {ai_analysis.get('confidence_score', 0.5)}")
             print(f"Reason: {ai_analysis.get('reason', '')}")
             print(f"Recommendation: {ai_analysis.get('recommendation', '')}")
+
+            if should_store_detection(ai_analysis):
+                # Supabase stores detection records for later dashboard views.
+                # Only masked secrets are included. raw_value is intentionally
+                # left out of this database record.
+                detection_record = {
+                    "repo_full_name": repo_full_name,
+                    "repo_owner": parsed_data.get("repo_owner", "unknown"),
+                    "repo_name": parsed_data.get("repo_name", "unknown"),
+                    "branch": parsed_data.get("branch", "unknown"),
+                    "commit_sha": commit_sha,
+                    "file_path": detected_secret.get("file_path", "unknown"),
+                    "line_number": detected_secret.get("line_number"),
+                    "secret_type": detected_secret.get("secret_type", "unknown"),
+                    "masked_value": detected_secret.get("masked_value", ""),
+                    "detection_method": detected_secret.get("detection_method"),
+                    "entropy_score": detected_secret.get("entropy_score"),
+                    "severity": ai_analysis.get("risk_level", "MEDIUM"),
+                    "confidence_score": ai_analysis.get("confidence_score", 0.5),
+                    "ai_reasoning": ai_analysis.get("reason", ""),
+                    "ai_recommendation": ai_analysis.get("recommendation", ""),
+                    "status": "open",
+                    "pusher_name": parsed_data.get("pusher_name", "unknown"),
+                    "pusher_email": parsed_data.get("pusher_email", "unknown"),
+                }
+
+                print("Storing risky detection in Supabase")
+                stored_detection = insert_detection(detection_record)
+
+                if stored_detection.get("stored") is False:
+                    print("Detection storage failed")
+                else:
+                    print("Detection stored successfully")
+
+                print(f"File: {detection_record['file_path']}")
+                print(f"Secret Type: {detection_record['secret_type']}")
+                print(f"Masked Value: {detection_record['masked_value']}")
+                print(f"Severity: {detection_record['severity']}")
+                print(f"Confidence: {detection_record['confidence_score']}")
+            else:
+                print("Detection ignored because AI marked it low risk")
 
     print("Background processing completed")
