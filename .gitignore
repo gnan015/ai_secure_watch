@@ -10,7 +10,10 @@ backend/venv/
 
 # Local environment files
 .env
+.env.local
 backend/.env
+backend/.env.local
+dashboard/.env.local
 
 # Editor and OS files
 .vscode/

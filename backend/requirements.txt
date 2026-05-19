@@ -1,7 +1,7 @@
-﻿fastapi
-uvicorn
+fastapi
+uvicorn[standard]
 python-dotenv
 pydantic-settings
 requests
-google-genai; platform_machine != "ARM64" and platform_machine != "aarch64"
-supabase; platform_machine != "ARM64" and platform_machine != "aarch64"
+google-genai
+supabase

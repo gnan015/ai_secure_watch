@@ -8,7 +8,8 @@ from app.routes.webhook import router as webhook_router
 
 app = FastAPI(title=settings.app_name)
 
-# Allow the future React dashboard to call this API during development.
+# Allow the React dashboard to call this API. In production, set FRONTEND_URL
+# to the deployed Vercel dashboard URL.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.frontend_url],

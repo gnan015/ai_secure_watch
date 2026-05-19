@@ -301,3 +301,105 @@ Example response for a push event:
   }
 }
 ```
+
+## Railway Deployment
+
+Deploy the backend from the `backend` directory.
+
+Recommended Railway settings:
+
+```text
+Root Directory: backend
+Start Command: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```
+
+This folder includes Railway-friendly deployment files:
+
+```text
+railway.json
+Procfile
+runtime.txt
+requirements.txt
+```
+
+Local production-style run command:
+
+```cmd
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+Railway environment variables:
+
+```text
+APP_NAME=AI SecureWatch
+APP_ENV=production
+FRONTEND_URL=https://your-vercel-dashboard-url.vercel.app
+
+GITHUB_WEBHOOK_SECRET=your_github_webhook_secret
+GITHUB_TOKEN=your_github_personal_access_token
+
+GEMINI_API_KEY=your_gemini_api_key
+
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+
+N8N_WEBHOOK_URL=your_production_n8n_webhook_url
+```
+
+Security notes:
+
+- Never commit a real `.env` file.
+- Keep `SUPABASE_SERVICE_ROLE_KEY` only in Railway/backend environment variables.
+- The backend stores and returns `masked_value`, not raw secrets.
+- The n8n payload removes `raw_value` defensively before sending alerts.
+- `FRONTEND_URL` controls CORS, so set it to the deployed Vercel dashboard URL.
+
+After Railway deploys, verify:
+
+```text
+https://your-railway-backend-url.railway.app/health
+```
+
+## Supabase Cloud Setup
+
+1. Open your Supabase project.
+2. Open SQL Editor.
+3. Run `supabase_schema.sql`.
+4. Confirm the `detections` table exists.
+5. Confirm the table has `masked_value` and does not have a `raw_value` column.
+6. Copy `SUPABASE_URL`.
+7. Copy `SUPABASE_SERVICE_ROLE_KEY`.
+8. Add both values to Railway environment variables.
+
+## n8n Production Setup
+
+1. Open your hosted n8n workflow.
+2. Use the production webhook URL from the Webhook Trigger node.
+3. Add that URL to Railway as `N8N_WEBHOOK_URL`.
+4. Confirm the Discord alert node is connected and active.
+5. Test that Discord receives only masked secret values.
+
+## GitHub Webhook Production Setup
+
+In the GitHub repository you want AI SecureWatch to monitor:
+
+1. Go to `Settings`.
+2. Open `Webhooks`.
+3. Click `Add webhook`.
+4. Set Payload URL:
+
+```text
+https://your-railway-backend-url.railway.app/webhook/github
+```
+
+5. Set Content type:
+
+```text
+application/json
+```
+
+6. Set Secret to the same value as `GITHUB_WEBHOOK_SECRET` in Railway.
+7. Select `Just the push event`.
+8. Make sure `Active` is checked.
+
+After deployment, GitHub should send push webhook events directly to the Railway backend.
