@@ -1,0 +1,1 @@
+STRIPE_SECRET_KEY = "sk_live_Q6vN2mR8xK4zT9pB1yH7sD5aW3cE0uL" 
