@@ -15,6 +15,10 @@ backend/.env
 backend/.env.local
 dashboard/.env.local
 
+# Local AI SecureWatch test secret files
+ai_securewatch_dummy_secret.py
+ai_securewatch_test_*.py
+
 # Editor and OS files
 .vscode/
 .idea/

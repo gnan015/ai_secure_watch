@@ -1,8 +1,12 @@
 import json
+import re
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from app.config import settings
+
+
+HUNK_HEADER_PATTERN = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 
 
 def fetch_commit_diff(repo_full_name: str, commit_sha: str) -> dict:
@@ -57,23 +61,42 @@ def fetch_commit_diff(repo_full_name: str, commit_sha: str) -> dict:
 
 
 def extract_added_lines(files: list) -> list:
-    """Extract newly added lines from GitHub patch text."""
+    """Extract newly added lines from GitHub patch text with new-file line numbers."""
     added_lines = []
 
     for file_data in files:
         file_path = file_data.get("filename", "unknown")
         patch = file_data.get("patch", "")
+        current_new_line_number = None
 
         for line in patch.splitlines():
-            if line.startswith("+++") or not line.startswith("+"):
+            hunk_match = HUNK_HEADER_PATTERN.match(line)
+            if hunk_match:
+                current_new_line_number = int(hunk_match.group(1))
                 continue
 
-            added_lines.append(
-                {
-                    "file_path": file_path,
-                    "line_content": line[1:],
-                    "line_number": None,
-                }
-            )
+            if line.startswith("\\"):
+                continue
+
+            if line.startswith("+++") or line.startswith("---"):
+                continue
+
+            if line.startswith("+"):
+                added_lines.append(
+                    {
+                        "file_path": file_path,
+                        "line_content": line[1:],
+                        "line_number": current_new_line_number,
+                    }
+                )
+                if current_new_line_number is not None:
+                    current_new_line_number += 1
+                continue
+
+            if line.startswith("-"):
+                continue
+
+            if current_new_line_number is not None:
+                current_new_line_number += 1
 
     return added_lines
