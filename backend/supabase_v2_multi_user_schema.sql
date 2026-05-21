@@ -6,8 +6,8 @@
 -- 3. Paste this full file.
 -- 4. Run it once.
 --
--- This file contains Phase 3.1 and Phase 3.2 definitions.
--- It does not create Discord webhooks, scan events, or V2 detections.
+-- This file contains Phase 3.1, Phase 3.2, and Phase 3.3 definitions.
+-- It does not create scan events or V2 detections.
 
 -- Enable UUID extension if not already enabled
 create extension if not exists "uuid-ossp";
@@ -144,7 +144,7 @@ end;
 $$;
 
 -- ==========================================
--- Helper Functions for RLS (Phase 3.1 & 3.2)
+-- Helper Functions for RLS (Phase 3.1 & 3.2 & 3.3)
 -- ==========================================
 
 -- Helper function to break infinite recursion in workspace membership policies.
@@ -417,3 +417,90 @@ using (
 
 grant select, insert, update, delete on public.github_installations to authenticated;
 grant select, insert, update, delete on public.repositories to authenticated;
+
+
+-- ==========================================
+-- Phase 3.3 Discord Webhooks
+-- ==========================================
+
+-- ==========================================
+-- 1. Table Definitions (Phase 3.3)
+-- ==========================================
+
+-- discord_webhooks table
+create table if not exists public.discord_webhooks (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  name text not null default 'Default Discord Webhook',
+  webhook_url_ciphertext text not null,
+  webhook_url_last4 text,
+  enabled boolean not null default true,
+  last_tested_at timestamptz,
+  last_error text,
+  created_by_user_id uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- ==========================================
+-- 2. Indexes for Performance (Phase 3.3)
+-- ==========================================
+
+create index if not exists idx_discord_webhooks_workspace_id on public.discord_webhooks(workspace_id);
+create index if not exists idx_discord_webhooks_enabled on public.discord_webhooks(enabled);
+create index if not exists idx_discord_webhooks_created_by_user_id on public.discord_webhooks(created_by_user_id);
+
+-- ==========================================
+-- 3. Automatic updated_at Triggers (Phase 3.3)
+-- ==========================================
+
+-- discord_webhooks updated_at trigger
+drop trigger if exists set_discord_webhooks_updated_at on public.discord_webhooks;
+create trigger set_discord_webhooks_updated_at
+before update on public.discord_webhooks
+for each row
+execute function public.set_updated_at();
+
+-- ==========================================
+-- 4. Row-Level Security (RLS) Policies (Phase 3.3)
+-- ==========================================
+
+alter table public.discord_webhooks enable row level security;
+
+-- discord_webhooks Policies
+drop policy if exists "discord_webhooks_select" on public.discord_webhooks;
+create policy "discord_webhooks_select" on public.discord_webhooks
+for select to authenticated
+using (
+  workspace_id in (select public.get_workspaces_for_user(auth.uid()))
+);
+
+drop policy if exists "discord_webhooks_insert" on public.discord_webhooks;
+create policy "discord_webhooks_insert" on public.discord_webhooks
+for insert to authenticated
+with check (
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+);
+
+drop policy if exists "discord_webhooks_update" on public.discord_webhooks;
+create policy "discord_webhooks_update" on public.discord_webhooks
+for update to authenticated
+using (
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+)
+with check (
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+);
+
+drop policy if exists "discord_webhooks_delete" on public.discord_webhooks;
+create policy "discord_webhooks_delete" on public.discord_webhooks
+for delete to authenticated
+using (
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+);
+
+-- ==========================================
+-- 5. Role Permissions Granting (Phase 3.3)
+-- ==========================================
+
+grant select, insert, update, delete on public.discord_webhooks to authenticated;

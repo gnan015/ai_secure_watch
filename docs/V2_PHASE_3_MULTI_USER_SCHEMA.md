@@ -1,6 +1,6 @@
 # AI SecureWatch V2 Phase 3: Multi-User Database Schema
 
-This document details the database schema design and Row-Level Security (RLS) structure for **AI SecureWatch V2 Phase 3.1 & Phase 3.2**. The goal of this phase is to establish the foundation for multi-user ownership.
+This document details the database schema design and Row-Level Security (RLS) structure for **AI SecureWatch V2 Phase 3.1, 3.2 & 3.3**. The goal of this phase is to establish the foundation for multi-user ownership.
 
 The schema is defined in [supabase_v2_multi_user_schema.sql](file:///C:/ai%20secure%20watch/backend/supabase_v2_multi_user_schema.sql).
 
@@ -133,11 +133,48 @@ This bypasses RLS on `workspace_members` safely to verify authorization rules.
 
 ---
 
-### 3. Non-Implemented Components (Deferred to Phase 3.3+)
+## Phase 3.3 Discord Webhooks
+
+### 1. Schema Architecture & Relations
+
+We introduce structures to store workspace-level configurations for Discord notifications:
+
+#### Table: `public.discord_webhooks`
+- `id` uuid primary key default `gen_random_uuid()`
+- `workspace_id` uuid not null references `public.workspaces(id)` on delete cascade
+- `name` text not null default `'Default Discord Webhook'`
+- `webhook_url_ciphertext` text not null (stores the encrypted URL value for data security)
+- `webhook_url_last4` text (stores the last 4 characters of the URL for dashboard mask preview)
+- `enabled` boolean not null default `true`
+- `last_tested_at` timestamptz
+- `last_error` text
+- `created_by_user_id` uuid references `public.profiles(id)` on delete set null
+- `created_at` timestamptz not null default `now()`
+- `updated_at` timestamptz not null default `now()`
+
+> [!IMPORTANT]
+> The webhook URL is sensitive and must not be exposed in raw form to the frontend. It is stored as ciphertext (`webhook_url_ciphertext`) and decrypted only on the backend during webhook alerting.
+
+---
+
+### 2. Row-Level Security (RLS) & Access Isolation
+
+RLS is enabled on `public.discord_webhooks`. 
+
+#### Policy Rules Matrix
+
+| Table | SELECT | INSERT | UPDATE | DELETE |
+| :--- | :--- | :--- | :--- | :--- |
+| **`discord_webhooks`** | Workspace Members | Workspace Owners/Admins | Workspace Owners/Admins | Workspace Owners/Admins |
+
+---
+
+### 3. Non-Implemented Components (Deferred to Phase 3.4+)
 
 To preserve the stability of the V1 features and control scope progression, the following are intentionally deferred:
-- **Discord webhooks** settings tables (`discord_webhooks`) are not added yet.
 - **Scan events / V2 detections** tables (`scan_events`, `detections_v2`) are not created yet.
 - **V1 Detections table** (`detections`) is **not** modified or migrated.
 - **Webhook processing** and **scanner logic** remain unchanged.
+- **Discord webhooks settings UI** on the dashboard is not implemented yet.
+- **Backend webhook test endpoints** are not created yet.
 - **GitHub App oauth callback, tokens, and routing backend APIs** are not yet implemented.

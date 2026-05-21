@@ -60,7 +60,8 @@ Status: prepared in this repository.
 - Status: in progress.
 - Completed Phase 3.1: Workspaces and workspace_members database schema with RLS, performance indexes, and profile-triggered auto-creation.
 - Completed Phase 3.2: GitHub Installations and Repositories database schema with RLS, helper policies for owners/admins, and performance indexes.
-- Remaining Phase 3.3+: Add discord_webhooks, scan_events, detections_v2, and RLS policies for them.
+- Completed Phase 3.3: Discord Webhooks database schema with ciphertext storage, RLS, and performance indexes.
+- Remaining Phase 3.4+: Add scan_events, detections_v2, and RLS policies for them.
 - Keep service-role-only backend writes for webhook ingestion.
 - Migrate or isolate the V1 `detections` table before changing production data shape.
 
