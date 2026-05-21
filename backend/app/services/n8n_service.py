@@ -44,6 +44,8 @@ def _build_safe_n8n_payload(detection_data: dict) -> dict:
 
 def send_detection_to_n8n(detection_data: dict) -> bool:
     """Send safe stored detection details to an n8n webhook."""
+    # TODO(V2): Route alerts through the owning user's Discord webhook setting.
+    # V1 keeps this global n8n webhook for the current deployment.
     if not settings.n8n_webhook_url:
         print("n8n webhook URL is not configured")
         return False

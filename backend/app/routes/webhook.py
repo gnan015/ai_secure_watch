@@ -45,6 +45,8 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
             "reason": "Only push events are supported for now",
         }
 
+    # TODO(V2): Resolve GitHub App installation and repository ownership here
+    # before queuing user-scoped scan work.
     push_data = parse_push_payload(payload)
 
     # Queue longer work so GitHub gets a fast response from this webhook.

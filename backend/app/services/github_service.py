@@ -11,6 +11,8 @@ HUNK_HEADER_PATTERN = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 
 def fetch_commit_diff(repo_full_name: str, commit_sha: str) -> dict:
     """Fetch commit details from GitHub and return changed file data."""
+    # TODO(V2): Use a GitHub App installation token for the repository owner
+    # instead of the V1 global GITHUB_TOKEN.
     if not settings.github_token:
         raise ValueError("GITHUB_TOKEN is not configured")
 
