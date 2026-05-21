@@ -25,6 +25,53 @@ What did not change:
 - No detection table migration was added.
 - V1 dashboard behavior remains unchanged because the Supabase client is not used anywhere yet.
 
-## Phase 2.2 Planned Next Step
+## Phase 2.2 Auth Context And Session Persistence
 
-The next phase should introduce Supabase Auth UI and session handling in the dashboard while keeping the existing V1 dashboard available during the transition.
+The dashboard now has a React auth context for future Supabase Auth screens and protected routes.
+
+What changed:
+
+- Added `dashboard/src/context/AuthContext.jsx`.
+- Added `AuthProvider` to read the current Supabase session on app load.
+- Added `useAuth()` as the helper hook for future authenticated UI.
+- Added auth state change listening through `supabase.auth.onAuthStateChange()`.
+- Exposed `loading`, `session`, `user`, and `signOut` from the auth context.
+- Wrapped the React app with `AuthProvider` in `dashboard/src/main.jsx`.
+
+What did not change:
+
+- No login page was added.
+- No signup page was added.
+- No logout button was added.
+- No protected route was added.
+- No dashboard redirect was added.
+- No backend JWT verification was added.
+- Visible V1 dashboard behavior remains unchanged.
+
+## Phase 2.3 Login Page
+
+The dashboard now has a basic login page powered by Supabase email/password authentication.
+
+What changed:
+
+- Added `dashboard/src/pages/Login.jsx`.
+- Installed React Router and added simple dashboard routes.
+- Added `/login` for the login page.
+- Added `/dashboard` for the existing dashboard.
+- Kept `/` rendering the existing dashboard so V1 behavior remains safe.
+- Login submits credentials through `supabase.auth.signInWithPassword()`.
+- Successful login redirects to `/dashboard`.
+- Wrong credentials show the Supabase error message.
+
+What did not change:
+
+- Signup is not added yet.
+- Dashboard protection is not added yet.
+- Unauthenticated users are not redirected away from the dashboard yet.
+- Backend JWT verification is not added yet.
+- Existing dashboard API calls are unchanged.
+- V1 dashboard behavior remains safe.
+
+## Phase 2.4 Planned Next Step
+
+The next phase should add signup UI and keep route protection as a later, explicit phase.
