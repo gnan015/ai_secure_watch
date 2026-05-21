@@ -57,16 +57,9 @@ Status: prepared in this repository.
 
 ## Phase 3: Multi-User Database Schema
 
-- Add V2 Supabase tables:
-  - `profiles`
-  - `workspaces`
-  - `workspace_members`
-  - `github_installations`
-  - `repositories`
-  - `discord_webhooks`
-  - `scan_events`
-  - `detections`
-- Add row-level security policies for user-scoped dashboard access.
+- Status: in progress.
+- Completed Phase 3.1: Workspaces and workspace_members database schema with RLS, performance indexes, and profile-triggered auto-creation.
+- Remaining Phase 3.2+: Add github_installations, repositories, discord_webhooks, scan_events, detections_v2, and RLS policies for them.
 - Keep service-role-only backend writes for webhook ingestion.
 - Migrate or isolate the V1 `detections` table before changing production data shape.
 
