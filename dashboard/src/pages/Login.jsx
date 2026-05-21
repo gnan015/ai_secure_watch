@@ -8,7 +8,25 @@ function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [githubLoading, setGithubLoading] = useState(false);
   const [error, setError] = useState("");
+
+  async function handleGitHubLogin() {
+    setGithubLoading(true);
+    setError("");
+
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: "github",
+      options: {
+        redirectTo: `${window.location.origin}/dashboard`,
+      },
+    });
+
+    if (oauthError) {
+      setError(oauthError.message || "GitHub login failed. Please try again.");
+      setGithubLoading(false);
+    }
+  }
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -35,17 +53,36 @@ function Login() {
       <section className="auth-panel" aria-labelledby="login-title">
         <div className="auth-heading">
           <h1 id="login-title">AI SecureWatch</h1>
-          <p>Sign in to continue monitoring repository security.</p>
+          <p>Secure your repositories from leaked secrets.</p>
         </div>
 
         {error && <div className="alert">{error}</div>}
+
+        <div className="oauth-section">
+          <button
+            className="github-button"
+            disabled={githubLoading || loading}
+            onClick={handleGitHubLogin}
+            type="button"
+          >
+            {githubLoading ? "Redirecting to GitHub..." : "Continue with GitHub"}
+          </button>
+          <p>
+            Use GitHub to sign in. Repository access will be connected later
+            through the AI SecureWatch GitHub App.
+          </p>
+        </div>
+
+        <div className="auth-divider">
+          <span>or</span>
+        </div>
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <label>
             Email
             <input
               autoComplete="email"
-              disabled={loading}
+              disabled={loading || githubLoading}
               onChange={(event) => setEmail(event.target.value)}
               required
               type="email"
@@ -57,7 +94,7 @@ function Login() {
             Password
             <input
               autoComplete="current-password"
-              disabled={loading}
+              disabled={loading || githubLoading}
               onChange={(event) => setPassword(event.target.value)}
               required
               type="password"
@@ -65,7 +102,11 @@ function Login() {
             />
           </label>
 
-          <button className="auth-button" disabled={loading} type="submit">
+          <button
+            className="auth-button"
+            disabled={loading || githubLoading}
+            type="submit"
+          >
             {loading ? "Signing in..." : "Sign in"}
           </button>
         </form>

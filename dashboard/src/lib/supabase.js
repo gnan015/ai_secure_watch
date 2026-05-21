@@ -34,6 +34,15 @@ const missingConfigClient = {
         },
       };
     },
+    async signInWithOAuth() {
+      return {
+        data: { provider: null, url: null },
+        error: {
+          message:
+            "Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.",
+        },
+      };
+    },
     async signOut() {
       return { error: null };
     },

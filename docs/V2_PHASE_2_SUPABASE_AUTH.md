@@ -72,6 +72,39 @@ What did not change:
 - Existing dashboard API calls are unchanged.
 - V1 dashboard behavior remains safe.
 
-## Phase 2.4 Planned Next Step
+## Phase 2.4 GitHub Login With Supabase
+
+The login page now supports GitHub OAuth through Supabase Auth.
+
+What changed:
+
+- Added a primary "Continue with GitHub" button to `dashboard/src/pages/Login.jsx`.
+- GitHub OAuth uses `supabase.auth.signInWithOAuth()`.
+- Successful GitHub auth redirects back to `/dashboard`.
+- GitHub login is for authentication only in this phase.
+- Repository access is not requested in this phase.
+- Repository monitoring will come later through GitHub App installation.
+- Email/password login remains available as a fallback.
+
+Supabase setup required:
+
+- Open Supabase Project -> Authentication -> Providers -> GitHub.
+- Enable the GitHub provider.
+- Add the GitHub OAuth Client ID.
+- Add the GitHub OAuth Client Secret.
+- Copy the redirect URL shown by Supabase.
+- Paste that redirect URL into the GitHub OAuth App callback URL.
+
+What did not change:
+
+- Signup is not added yet.
+- Dashboard protection is not added yet.
+- Backend JWT verification is still not added.
+- No GitHub App install link was added.
+- No repository access code was added.
+- Existing dashboard API calls are unchanged.
+- V1 dashboard behavior remains unchanged.
+
+## Phase 2.5 Planned Next Step
 
 The next phase should add signup UI and keep route protection as a later, explicit phase.

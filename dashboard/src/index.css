@@ -361,6 +361,55 @@ input {
   opacity: 0.72;
 }
 
+.oauth-section {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.oauth-section p {
+  margin: 0;
+  color: #a1a1aa;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.github-button {
+  min-height: 44px;
+  border: 1px solid #52525b;
+  border-radius: 8px;
+  color: #f8fafc;
+  background: #18181b;
+  cursor: pointer;
+}
+
+.github-button:hover:not(:disabled) {
+  border-color: #a1a1aa;
+  background: #27272a;
+}
+
+.github-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: #a1a1aa;
+  font-size: 0.84rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #3f3f46;
+}
+
 @media (max-width: 1180px) {
   .summary-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
