@@ -1,4 +1,4 @@
--- Phase 3.1 Workspaces And Members
+-- AI SecureWatch V2 Supabase Multi-User Schema
 --
 -- Manual setup:
 -- 1. Open Supabase Dashboard.
@@ -6,15 +6,18 @@
 -- 3. Paste this full file.
 -- 4. Run it once.
 --
--- This file creates only the workspaces and workspace_members tables,
--- triggers, indexes, and RLS policies for multi-user isolation.
--- It does not create GitHub installations, repositories, Discord webhooks, or V2 detections.
+-- This file contains Phase 3.1 and Phase 3.2 definitions.
+-- It does not create Discord webhooks, scan events, or V2 detections.
 
 -- Enable UUID extension if not already enabled
 create extension if not exists "uuid-ossp";
 
 -- ==========================================
--- 1. Table Definitions
+-- Phase 3.1 Workspaces And Members
+-- ==========================================
+
+-- ==========================================
+-- 1. Table Definitions (Phase 3.1)
 -- ==========================================
 
 -- workspaces table
@@ -37,7 +40,7 @@ create table if not exists public.workspace_members (
 );
 
 -- ==========================================
--- 2. Indexes for Performance
+-- 2. Indexes for Performance (Phase 3.1)
 -- ==========================================
 
 create index if not exists idx_workspaces_owner_user_id on public.workspaces(owner_user_id);
@@ -45,7 +48,7 @@ create index if not exists idx_workspace_members_user_id on public.workspace_mem
 create index if not exists idx_workspace_members_workspace_id on public.workspace_members(workspace_id);
 
 -- ==========================================
--- 3. Automatic updated_at Triggers
+-- 3. Automatic updated_at Triggers (Phase 3.1)
 -- ==========================================
 
 -- Ensure set_updated_at helper function exists
@@ -67,7 +70,7 @@ for each row
 execute function public.set_updated_at();
 
 -- ==========================================
--- 4. Default Workspace Auto-Provisioning
+-- 4. Default Workspace Auto-Provisioning (Phase 3.1)
 -- ==========================================
 
 -- Function to handle workspace creation on profile creation
@@ -141,7 +144,7 @@ end;
 $$;
 
 -- ==========================================
--- 5. Row-Level Security (RLS) Policies
+-- Helper Functions for RLS (Phase 3.1 & 3.2)
 -- ==========================================
 
 -- Helper function to break infinite recursion in workspace membership policies.
@@ -155,6 +158,27 @@ stable
 as $$
   select workspace_id from public.workspace_members where user_id = $1;
 $$;
+
+-- Helper function to check if a user is an owner or admin of a workspace.
+-- Runs with security definer to bypass RLS.
+create or replace function public.is_workspace_admin_or_owner(workspace_id uuid, user_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.workspace_members 
+    where workspace_members.workspace_id = $1 
+      and workspace_members.user_id = $2 
+      and workspace_members.role in ('owner', 'admin')
+  );
+$$;
+
+-- ==========================================
+-- 5. Row-Level Security (RLS) Policies (Phase 3.1)
+-- ==========================================
 
 -- Enable RLS on both tables
 alter table public.workspaces enable row level security;
@@ -238,8 +262,158 @@ using (
 );
 
 -- ==========================================
--- 6. Role Permissions Granting
+-- 6. Role Permissions Granting (Phase 3.1)
 -- ==========================================
 
 grant select, insert, update, delete on public.workspaces to authenticated;
 grant select, insert, update, delete on public.workspace_members to authenticated;
+
+
+-- ==========================================
+-- Phase 3.2 GitHub Installations And Repositories
+-- ==========================================
+
+-- ==========================================
+-- 1. Table Definitions (Phase 3.2)
+-- ==========================================
+
+-- github_installations table
+create table if not exists public.github_installations (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  installation_id bigint not null unique,
+  account_login text not null,
+  account_type text,
+  account_id bigint,
+  app_slug text,
+  installed_by_user_id uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- repositories table
+create table if not exists public.repositories (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  github_installation_id uuid not null references public.github_installations(id) on delete cascade,
+  github_repo_id bigint not null unique,
+  full_name text not null,
+  owner text not null,
+  name text not null,
+  private boolean default false,
+  default_branch text,
+  html_url text,
+  monitoring_enabled boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- ==========================================
+-- 2. Indexes for Performance (Phase 3.2)
+-- ==========================================
+
+create index if not exists idx_github_installations_workspace_id on public.github_installations(workspace_id);
+create index if not exists idx_github_installations_installation_id on public.github_installations(installation_id);
+create index if not exists idx_github_installations_account_login on public.github_installations(account_login);
+
+create index if not exists idx_repositories_workspace_id on public.repositories(workspace_id);
+create index if not exists idx_repositories_github_installation_id on public.repositories(github_installation_id);
+create index if not exists idx_repositories_github_repo_id on public.repositories(github_repo_id);
+create index if not exists idx_repositories_full_name on public.repositories(full_name);
+create index if not exists idx_repositories_monitoring_enabled on public.repositories(monitoring_enabled);
+
+-- ==========================================
+-- 3. Automatic updated_at Triggers (Phase 3.2)
+-- ==========================================
+
+-- github_installations updated_at trigger
+drop trigger if exists set_github_installations_updated_at on public.github_installations;
+create trigger set_github_installations_updated_at
+before update on public.github_installations
+for each row
+execute function public.set_updated_at();
+
+-- repositories updated_at trigger
+drop trigger if exists set_repositories_updated_at on public.repositories;
+create trigger set_repositories_updated_at
+before update on public.repositories
+for each row
+execute function public.set_updated_at();
+
+-- ==========================================
+-- 4. Row-Level Security (RLS) Policies (Phase 3.2)
+-- ==========================================
+
+alter table public.github_installations enable row level security;
+alter table public.repositories enable row level security;
+
+-- github_installations Policies
+drop policy if exists "github_installations_select" on public.github_installations;
+create policy "github_installations_select" on public.github_installations
+for select to authenticated
+using (
+  workspace_id in (select public.get_workspaces_for_user(auth.uid()))
+);
+
+drop policy if exists "github_installations_insert" on public.github_installations;
+create policy "github_installations_insert" on public.github_installations
+for insert to authenticated
+with check (
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+);
+
+drop policy if exists "github_installations_update" on public.github_installations;
+create policy "github_installations_update" on public.github_installations
+for update to authenticated
+using (
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+)
+with check (
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+);
+
+drop policy if exists "github_installations_delete" on public.github_installations;
+create policy "github_installations_delete" on public.github_installations
+for delete to authenticated
+using (
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+);
+
+-- repositories Policies
+drop policy if exists "repositories_select" on public.repositories;
+create policy "repositories_select" on public.repositories
+for select to authenticated
+using (
+  workspace_id in (select public.get_workspaces_for_user(auth.uid()))
+);
+
+drop policy if exists "repositories_insert" on public.repositories;
+create policy "repositories_insert" on public.repositories
+for insert to authenticated
+with check (
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+);
+
+drop policy if exists "repositories_update" on public.repositories;
+create policy "repositories_update" on public.repositories
+for update to authenticated
+using (
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+)
+with check (
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+);
+
+drop policy if exists "repositories_delete" on public.repositories;
+create policy "repositories_delete" on public.repositories
+for delete to authenticated
+using (
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+);
+
+-- ==========================================
+-- 5. Role Permissions Granting (Phase 3.2)
+-- ==========================================
+
+grant select, insert, update, delete on public.github_installations to authenticated;
+grant select, insert, update, delete on public.repositories to authenticated;

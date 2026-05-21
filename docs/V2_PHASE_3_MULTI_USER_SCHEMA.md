@@ -1,6 +1,6 @@
 # AI SecureWatch V2 Phase 3: Multi-User Database Schema
 
-This document details the database schema design and Row-Level Security (RLS) structure for **AI SecureWatch V2 Phase 3.1**. The goal of this phase is to establish the foundation for multi-user ownership using workspaces and workspace_members.
+This document details the database schema design and Row-Level Security (RLS) structure for **AI SecureWatch V2 Phase 3.1 & Phase 3.2**. The goal of this phase is to establish the foundation for multi-user ownership.
 
 The schema is defined in [supabase_v2_multi_user_schema.sql](file:///C:/ai%20secure%20watch/backend/supabase_v2_multi_user_schema.sql).
 
@@ -65,12 +65,79 @@ This function executes with the privileges of the database owner (bypassing RLS 
 
 ---
 
-### 4. Non-Implemented Components (Deferred to Phase 3.2+)
+## Phase 3.2 GitHub Installations And Repositories
+
+### 1. Schema Architecture & Relations
+
+We introduce structures to register GitHub App integrations and select specific repositories for secret scanning:
+
+#### Table: `public.github_installations`
+- `id` uuid primary key default `gen_random_uuid()`
+- `workspace_id` uuid not null references `public.workspaces(id)` on delete cascade
+- `installation_id` bigint not null unique (the identifier provided by GitHub)
+- `account_login` text not null
+- `account_type` text (e.g., `'User'`, `'Organization'`)
+- `account_id` bigint (GitHub account ID)
+- `app_slug` text (identifier of the GitHub App)
+- `installed_by_user_id` uuid references `public.profiles(id)` on delete set null
+- `created_at` timestamptz not null default `now()`
+- `updated_at` timestamptz not null default `now()`
+
+#### Table: `public.repositories`
+- `id` uuid primary key default `gen_random_uuid()`
+- `workspace_id` uuid not null references `public.workspaces(id)` on delete cascade
+- `github_installation_id` uuid not null references `public.github_installations(id)` on delete cascade
+- `github_repo_id` bigint not null unique (the identifier provided by GitHub)
+- `full_name` text not null
+- `owner` text not null
+- `name` text not null
+- `private` boolean default `false`
+- `default_branch` text
+- `html_url` text
+- `monitoring_enabled` boolean not null default `true` (enables or disables active commit scanning)
+- `created_at` timestamptz not null default `now()`
+- `updated_at` timestamptz not null default `now()`
+
+---
+
+### 2. Row-Level Security (RLS) & Access Isolation
+
+RLS is enabled on both `public.github_installations` and `public.repositories`. 
+
+#### Helper Function for Write Actions
+To grant insert/update/delete permissions to owners and admins only, we define a helper function `is_workspace_admin_or_owner(workspace_id uuid, user_id uuid)`:
+```sql
+create or replace function public.is_workspace_admin_or_owner(workspace_id uuid, user_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.workspace_members 
+    where workspace_members.workspace_id = $1 
+      and workspace_members.user_id = $2 
+      and workspace_members.role in ('owner', 'admin')
+  );
+$$;
+```
+This bypasses RLS on `workspace_members` safely to verify authorization rules.
+
+#### Policy Rules Matrix
+
+| Table | SELECT | INSERT | UPDATE | DELETE |
+| :--- | :--- | :--- | :--- | :--- |
+| **`github_installations`** | Workspace Members | Workspace Owners/Admins | Workspace Owners/Admins | Workspace Owners/Admins |
+| **`repositories`** | Workspace Members | Workspace Owners/Admins | Workspace Owners/Admins (including `monitoring_enabled`) | Workspace Owners/Admins |
+
+---
+
+### 3. Non-Implemented Components (Deferred to Phase 3.3+)
 
 To preserve the stability of the V1 features and control scope progression, the following are intentionally deferred:
-- **GitHub App integration** tables (`github_installations`) are not added yet.
-- **Monitored repositories** tables (`repositories`) are not added yet.
 - **Discord webhooks** settings tables (`discord_webhooks`) are not added yet.
 - **Scan events / V2 detections** tables (`scan_events`, `detections_v2`) are not created yet.
 - **V1 Detections table** (`detections`) is **not** modified or migrated.
 - **Webhook processing** and **scanner logic** remain unchanged.
+- **GitHub App oauth callback, tokens, and routing backend APIs** are not yet implemented.
