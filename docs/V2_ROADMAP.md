@@ -42,10 +42,16 @@ Status: prepared in this repository.
 
 ## Phase 2: Supabase Auth Foundation
 
-- Create Supabase Auth client setup for the dashboard.
-- Add login, signup, logout, and session persistence.
-- Add backend JWT verification dependency.
-- Create `profiles` records linked to Supabase `auth.users`.
+- Status: in progress.
+- Completed: Supabase Auth client setup for the dashboard.
+- Completed: Auth context and session persistence.
+- Completed: email/password login page.
+- Completed: GitHub OAuth login through Supabase Auth.
+- Completed: protected dashboard route.
+- Completed: logout button.
+- Completed: `profiles` SQL schema linked to Supabase `auth.users` with RLS.
+- Pending: signup UI.
+- Pending: backend JWT verification dependency.
 - Update dashboard API calls to include Supabase access tokens.
 - Protect dashboard pages behind authenticated routes.
 

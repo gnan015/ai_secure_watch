@@ -105,6 +105,93 @@ What did not change:
 - Existing dashboard API calls are unchanged.
 - V1 dashboard behavior remains unchanged.
 
-## Phase 2.5 Planned Next Step
+## Phase 2.5 Protected Dashboard Route
 
-The next phase should add signup UI and keep route protection as a later, explicit phase.
+The dashboard route now requires a Supabase session.
+
+What changed:
+
+- Added `dashboard/src/components/ProtectedRoute.jsx`.
+- `/dashboard` now renders the existing dashboard through `ProtectedRoute`.
+- Unauthenticated users who open `/dashboard` are redirected to `/login`.
+- `/login` remains public.
+- Logged-in users who open `/login` are redirected to `/dashboard`.
+- `/` redirects based on auth state:
+  - logged-in users go to `/dashboard`
+  - logged-out users go to `/login`
+
+What did not change:
+
+- Backend routes are unchanged.
+- GitHub webhook remains public.
+- Scanner logic is unchanged.
+- No backend JWT verification was added.
+- No GitHub App or repository selection logic was added.
+- Existing dashboard API calls are unchanged.
+- The V1 dashboard component still works after login.
+
+## Phase 2.6 Logout Button
+
+Authenticated dashboard users can now sign out from the dashboard header.
+
+What changed:
+
+- Added a `Sign out` button to the dashboard header.
+- Logout uses the existing `AuthContext` `signOut()` function.
+- The button shows `Signing out...` while the request is in progress.
+- Successful logout redirects the user to `/login`.
+- Logout errors are shown in the existing dashboard alert area.
+- The dashboard remains protected by `ProtectedRoute`.
+
+What did not change:
+
+- Backend routes are unchanged.
+- GitHub webhook route is unchanged.
+- Scanner logic is unchanged.
+- No backend JWT verification was added.
+- No GitHub App logic was added.
+- No repository selection logic was added.
+- No per-user Discord alert routing was added.
+- Existing dashboard API calls are unchanged.
+
+## Phase 2.7 Profiles Table And RLS
+
+The V2 Supabase profiles table schema has been added as a manual SQL setup file.
+
+What changed:
+
+- Added `backend/supabase_v2_auth_schema.sql`.
+- Added a `public.profiles` table linked to `auth.users`.
+- Added an `updated_at` trigger for profile updates.
+- Added a `handle_new_user()` trigger so new Supabase Auth users automatically get a profile row.
+- Added an idempotent backfill query for Supabase Auth users that existed before the profile trigger was installed.
+- Profile display names use a safe fallback order:
+  - `raw_user_meta_data.name`
+  - `raw_user_meta_data.user_name`
+  - email prefix
+- Profile avatar URLs use `raw_user_meta_data.avatar_url` when available.
+- Row Level Security is enabled on `public.profiles`.
+- Authenticated users can select only their own profile.
+- Authenticated users can update only their own profile.
+
+Manual Supabase setup required:
+
+- Open Supabase Project -> SQL Editor.
+- Paste the contents of `backend/supabase_v2_auth_schema.sql`.
+- Run the SQL manually.
+- If you already logged in before running the SQL, run the latest version of the file again so the backfill creates your profile row.
+
+What did not change:
+
+- GitHub App tables are not added yet.
+- Repositories table is not added yet.
+- Discord webhook table is not added yet.
+- Detections table is not migrated yet.
+- Backend JWT verification is still not added.
+- Backend runtime routes are unchanged.
+- GitHub webhook route is unchanged.
+- Scanner logic is unchanged.
+
+## Phase 2.8 Planned Next Step
+
+The next phase should verify profile creation from real Supabase Auth users or add account/profile UI. Backend JWT verification remains a later explicit phase.

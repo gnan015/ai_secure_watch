@@ -65,6 +65,32 @@ select {
   border-color: #71717a;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sign-out-button {
+  min-height: 42px;
+  padding: 0 18px;
+  border: 1px solid #52525b;
+  border-radius: 8px;
+  color: #f8fafc;
+  background: transparent;
+  cursor: pointer;
+}
+
+.sign-out-button:hover:not(:disabled) {
+  border-color: #a1a1aa;
+  background: #18181b;
+}
+
+.sign-out-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
 .alert,
 .loading-state,
 .empty-state {
@@ -424,6 +450,12 @@ input {
 
   .hero {
     align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .header-actions {
+    width: 100%;
+    align-items: stretch;
     flex-direction: column;
   }
 

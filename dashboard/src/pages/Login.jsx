@@ -1,15 +1,25 @@
 import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 
+import { useAuth } from "../context/AuthContext.jsx";
 import supabase from "../lib/supabase.js";
 
 function Login() {
   const navigate = useNavigate();
+  const { loading: authLoading, session, user } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [githubLoading, setGithubLoading] = useState(false);
   const [error, setError] = useState("");
+
+  if (authLoading) {
+    return <div className="loading-state">Checking authentication...</div>;
+  }
+
+  if (session && user) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   async function handleGitHubLogin() {
     setGithubLoading(true);
