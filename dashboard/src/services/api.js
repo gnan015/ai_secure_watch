@@ -1,8 +1,31 @@
 import axios from "axios";
 
+import supabase from "../lib/supabase.js";
+
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000",
   timeout: 15000,
+});
+
+apiClient.interceptors.request.use(async (config) => {
+  try {
+    const { data, error } = await supabase.auth.getSession();
+
+    if (error) {
+      console.warn("Supabase session could not be read for API request.");
+      return config;
+    }
+
+    const accessToken = data?.session?.access_token;
+
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
+    }
+  } catch (sessionError) {
+    console.warn("Supabase session lookup failed before API request.");
+  }
+
+  return config;
 });
 
 export async function fetchDetections(filters = {}) {

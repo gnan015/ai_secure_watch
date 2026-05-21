@@ -192,6 +192,166 @@ What did not change:
 - GitHub webhook route is unchanged.
 - Scanner logic is unchanged.
 
-## Phase 2.8 Planned Next Step
+## Phase 2.8 Backend JWT Verification
 
-The next phase should verify profile creation from real Supabase Auth users or add account/profile UI. Backend JWT verification remains a later explicit phase.
+The backend now has a reusable FastAPI dependency for verifying Supabase access tokens.
+
+What changed:
+
+- Added `backend/app/dependencies/auth.py`.
+- Added `CurrentUser` for verified Supabase user data.
+- Added `get_current_user()` as a reusable FastAPI dependency.
+- Added direct `PyJWT` backend dependency.
+- Added `SUPABASE_JWT_SECRET` support in backend settings.
+- Added backend env example entries for `SUPABASE_ANON_KEY` and `SUPABASE_JWT_SECRET`.
+- The dependency reads `Authorization: Bearer <token>`.
+- The dependency verifies Supabase JWTs with `SUPABASE_JWT_SECRET` and `HS256`.
+- Expired, invalid, and missing tokens return clear `401` errors.
+- Missing `SUPABASE_JWT_SECRET` returns a clear `500` error.
+- Verified tokens return current user info: `id`, `email`, `role`, and `aud`.
+
+What did not change:
+
+- Existing V1 routes are not protected yet.
+- Existing dashboard APIs are not protected yet.
+- GitHub webhook remains public.
+- Health route remains public.
+- Scanner logic is unchanged.
+- GitHub App logic is not added.
+- Repository management is not added.
+- Dashboard API token attachment comes in Phase 2.9.
+
+## Phase 2.9 Dashboard API Access Token
+
+Dashboard API calls now attach the Supabase access token when one is available.
+
+What changed:
+
+- Updated `dashboard/src/services/api.js`.
+- The Axios client now checks the current Supabase session before API requests.
+- If a session exists, requests include `Authorization: Bearer <access_token>`.
+- If no session exists, requests continue without crashing.
+- If token lookup fails, the API helper logs a warning and keeps the request flow safe.
+- Existing API function names and response shapes are unchanged.
+- This prepares the dashboard for future protected V2 backend APIs.
+
+What did not change:
+
+- Existing backend routes are not protected yet.
+- Existing dashboard APIs are not protected yet.
+- GitHub webhook remains public.
+- Health route remains public.
+- Scanner logic is unchanged.
+- GitHub App logic is not added.
+- Repository management is not added.
+- Detections table is not migrated.
+
+## Phase 2.10 Final Testing And Cleanup
+
+Phase 2 auth foundation has been reviewed end-to-end and is ready for Phase 3.
+
+Frontend auth foundation:
+
+- `dashboard/src/lib/supabase.js` reads `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+- Missing frontend Supabase env vars produce clean development warnings and safe auth fallback behavior.
+- `AuthContext` loads the current session on app startup.
+- `AuthContext` listens for Supabase auth state changes.
+- Login supports email/password through Supabase Auth.
+- Login supports GitHub OAuth through Supabase Auth.
+- `/dashboard` is protected by the React `ProtectedRoute`.
+- Logged-out users are redirected to `/login`.
+- Logged-in users can access `/dashboard`.
+- Logout signs users out and redirects to `/login`.
+- Dashboard API requests attach `Authorization: Bearer <access_token>` when a session exists.
+- Logged-out API helper behavior does not crash.
+
+Backend auth foundation:
+
+- `backend/app/dependencies/auth.py` provides `get_current_user()`.
+- `get_current_user()` reads `Authorization: Bearer <token>`.
+- Supabase JWTs are verified with `SUPABASE_JWT_SECRET` using `HS256`.
+- Verified tokens return `id`, `email`, `role`, and `aud`.
+- Missing, invalid, and expired tokens return clear auth errors when the dependency is used.
+- Existing V1 routes are not protected yet.
+- `/health` remains public.
+- `/webhook/github` remains public.
+- Existing dashboard APIs remain unchanged.
+
+Database auth foundation:
+
+- `backend/supabase_v2_auth_schema.sql` creates `public.profiles`.
+- `profiles.id` references `auth.users(id)`.
+- `profiles` includes `email`, `display_name`, `avatar_url`, `created_at`, and `updated_at`.
+- `updated_at` trigger is included.
+- `handle_new_user()` trigger is included.
+- RLS is enabled.
+- Users can select/update only their own profile.
+- Existing users can be backfilled safely.
+- No GitHub App tables were added.
+- No repositories table was added.
+- The V1 detections table was not migrated.
+
+Required dashboard environment variables:
+
+```text
+VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_SUPABASE_URL=your_supabase_project_url
+VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+Required backend environment variables for Phase 2 auth:
+
+```text
+SUPABASE_URL=your_supabase_project_url
+SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+SUPABASE_JWT_SECRET=your_supabase_jwt_secret
+```
+
+Supabase GitHub provider setup:
+
+- Open Supabase Project -> Authentication -> Providers -> GitHub.
+- Enable the GitHub provider.
+- Add the GitHub OAuth Client ID.
+- Add the GitHub OAuth Client Secret.
+- Copy the Supabase callback URL.
+- Add that callback URL to the GitHub OAuth App.
+- Keep GitHub Device Flow disabled for this web dashboard.
+
+Profiles SQL setup:
+
+- Open Supabase Project -> SQL Editor.
+- Paste the contents of `backend/supabase_v2_auth_schema.sql`.
+- Run the SQL manually.
+- Check Supabase Table Editor -> `profiles` after login.
+
+Manual auth test checklist:
+
+- `npm run build` passes in `dashboard`.
+- `npm run dev` works in `dashboard`.
+- Backend starts successfully.
+- `/health` works without auth.
+- `/login` opens.
+- GitHub login works if the Supabase provider is configured.
+- Email login works if email/password auth is enabled in Supabase and the user exists.
+- `/dashboard` redirects to `/login` when logged out.
+- `/dashboard` opens when logged in.
+- Logout redirects to `/login`.
+- Dashboard API requests include `Authorization: Bearer <access_token>` when logged in.
+- GitHub webhook remains public.
+- Scanner logic remains unchanged.
+
+Intentionally not implemented in Phase 2:
+
+- GitHub App installation.
+- Repository selection and monitoring management.
+- Per-user Discord alert settings.
+- Migration of the V1 detections table.
+- Applying backend JWT protection to existing V1 dashboard APIs.
+- Changing webhook behavior.
+- Changing scanner behavior.
+
+Phase 2 completion status:
+
+- Phase 2 is complete for the auth foundation scope.
+- Phase 3 should begin the multi-user database schema: workspaces, members, GitHub installations, repositories, scan events, and V2 detection ownership.

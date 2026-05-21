@@ -42,7 +42,7 @@ Status: prepared in this repository.
 
 ## Phase 2: Supabase Auth Foundation
 
-- Status: in progress.
+- Status: completed for the V2 auth foundation scope.
 - Completed: Supabase Auth client setup for the dashboard.
 - Completed: Auth context and session persistence.
 - Completed: email/password login page.
@@ -50,10 +50,10 @@ Status: prepared in this repository.
 - Completed: protected dashboard route.
 - Completed: logout button.
 - Completed: `profiles` SQL schema linked to Supabase `auth.users` with RLS.
-- Pending: signup UI.
-- Pending: backend JWT verification dependency.
-- Update dashboard API calls to include Supabase access tokens.
-- Protect dashboard pages behind authenticated routes.
+- Completed: backend JWT verification dependency.
+- Completed: dashboard API access token attachment.
+- Deferred: dedicated email signup UI. GitHub OAuth currently supports sign-in/sign-up through Supabase.
+- Deferred: applying JWT protection to existing V1 dashboard APIs. Existing V1 behavior remains unchanged.
 
 ## Phase 3: Multi-User Database Schema
 

@@ -16,7 +16,9 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
 
     supabase_url: str = ""
+    supabase_anon_key: str = ""
     supabase_service_role_key: str = ""
+    supabase_jwt_secret: str = ""
     # TODO(V2): Add Supabase Auth JWT/audience settings for authenticated
     # dashboard APIs while keeping service-role usage backend-only.
 

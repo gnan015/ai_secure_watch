@@ -3,5 +3,6 @@ uvicorn[standard]
 python-dotenv
 pydantic-settings
 requests
+PyJWT
 google-genai
 supabase

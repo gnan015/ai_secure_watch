@@ -21,8 +21,8 @@ function RootRedirect() {
 }
 
 function App() {
-  // TODO(V2): Add Supabase Auth session handling and route users through
-  // login, onboarding, repositories, integrations, and the scoped dashboard.
+  // TODO(V2): Add onboarding, repositories, integrations, and scoped V2
+  // dashboard routes after the multi-user schema is ready.
   return (
     <BrowserRouter>
       <Routes>
