@@ -131,6 +131,9 @@ function Dashboard() {
           <Link className="refresh-button" to="/repositories">
             Repositories
           </Link>
+          <Link className="refresh-button" to="/integrations/discord">
+            Discord Alerts
+          </Link>
           <button className="refresh-button" onClick={loadDashboardData}>
             Refresh
           </button>

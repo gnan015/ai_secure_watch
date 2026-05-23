@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./context/AuthContext.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
+import DiscordSettings from "./pages/DiscordSettings.jsx";
 import Login from "./pages/Login.jsx";
 import Repositories from "./pages/Repositories.jsx";
 
@@ -41,6 +42,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Repositories />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/integrations/discord"
+          element={
+            <ProtectedRoute>
+              <DiscordSettings />
             </ProtectedRoute>
           }
         />

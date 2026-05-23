@@ -90,3 +90,36 @@ export async function updateRepositoryMonitoring(
   );
   return response.data;
 }
+
+export async function getDiscordWebhooks() {
+  const response = await apiClient.get("/api/discord/webhooks");
+  return response.data;
+}
+
+export async function createDiscordWebhook({ name, webhook_url }) {
+  const response = await apiClient.post("/api/discord/webhooks", {
+    name,
+    webhook_url,
+  });
+  return response.data;
+}
+
+export async function updateDiscordWebhook(webhookId, payload) {
+  const response = await apiClient.patch(
+    `/api/discord/webhooks/${webhookId}`,
+    payload
+  );
+  return response.data;
+}
+
+export async function deleteDiscordWebhook(webhookId) {
+  const response = await apiClient.delete(`/api/discord/webhooks/${webhookId}`);
+  return response.data;
+}
+
+export async function testDiscordWebhook(webhookId) {
+  const response = await apiClient.post(
+    `/api/discord/webhooks/${webhookId}/test`
+  );
+  return response.data;
+}
