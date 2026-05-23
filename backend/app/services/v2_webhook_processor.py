@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from app.services.ai_service import analyze_secret_with_ai
 from app.services.database_service import (
+    DatabaseError,
     create_v2_detections_bulk,
     should_store_detection,
     update_scan_event_status,
@@ -50,6 +51,7 @@ def process_v2_github_push(
             raise ValueError("GitHub installation access token is missing")
 
         detections_to_store: list[dict] = []
+        detections_found = 0
 
         for commit_sha in commit_shas:
             diff_data = fetch_commit_diff_with_token(
@@ -60,6 +62,7 @@ def process_v2_github_push(
             changed_files = diff_data.get("files", [])
             added_lines = extract_added_lines(changed_files)
             detected_secrets = scan_added_lines(added_lines)
+            detections_found += len(detected_secrets)
 
             print(f"V2 changed files found: {len(changed_files)}")
             print(f"V2 added lines extracted: {len(added_lines)}")
@@ -92,7 +95,12 @@ def process_v2_github_push(
                     }
                 )
 
+        print(f"V2 detections_found count: {detections_found}")
+        print(f"V2 detections eligible for storage: {len(detections_to_store)}")
         stored_detections = create_v2_detections_bulk(detections_to_store)
+        if len(stored_detections) != len(detections_to_store):
+            raise DatabaseError("V2 detection storage count mismatch")
+
         update_scan_event_status(
             scan_event_id=scan_event_id,
             status="completed",
@@ -100,12 +108,13 @@ def process_v2_github_push(
         )
 
         print("V2 GitHub App push processing completed")
-        print(f"V2 detections stored: {len(stored_detections)}")
+        print(f"V2 detections_stored count: {len(stored_detections)}")
     except Exception as exc:
-        print(f"V2 GitHub App push processing failed: {type(exc).__name__}")
+        error_message = f"{type(exc).__name__}: {exc}"
+        print(f"V2 GitHub App push processing failed: {error_message}")
         update_scan_event_status(
             scan_event_id=scan_event_id,
             status="failed",
-            error_message=type(exc).__name__,
+            error_message=error_message,
             completed_at=_utc_now(),
         )

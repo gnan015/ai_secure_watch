@@ -661,11 +661,16 @@ def create_v2_detections_bulk(detections: list[dict]) -> list[dict]:
     if not detections:
         return []
 
+    safe_detections = [_safe_v2_detection_payload(detection) for detection in detections]
     rows = _send_supabase_table_request(
         "v2_detections",
         "POST",
-        payload=[_safe_v2_detection_payload(detection) for detection in detections],
+        payload=safe_detections,
     )
+    if len(rows) != len(safe_detections):
+        raise DatabaseError(
+            "V2 detection bulk insert returned unexpected row count"
+        )
     return rows
 
 
