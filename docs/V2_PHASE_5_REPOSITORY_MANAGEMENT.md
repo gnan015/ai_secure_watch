@@ -61,3 +61,43 @@ Phase 5.2 adds the first repository management page in the dashboard.
 ### Scope Notes
 - No webhook/scanner behavior changed.
 - Detection pipeline upgrade comes later.
+
+---
+
+## Phase 5.3 Final Phase 5 Verification
+
+Phase 5 Repository Management is complete for backend API and dashboard page scope.
+
+### What Phase 5 Added
+- Workspace-scoped backend repository APIs.
+- Dashboard repositories page for viewing synced repositories.
+- Repository monitoring toggle support.
+
+### Endpoints Added
+- `GET /api/repositories`
+- `PATCH /api/repositories/{repository_id}/monitoring`
+
+### Dashboard Route Added
+- Protected dashboard route:
+`/repositories`
+
+### Manual Test Checklist
+- `npm run build` passes in `dashboard`.
+- Logged-out access to `/repositories` redirects to `/login`.
+- Logged-in access to `/repositories` loads repository data.
+- Synced repositories appear in the repositories table.
+- Monitoring toggle updates backend and UI state.
+- Refresh keeps updated `monitoring_enabled` state.
+- `/dashboard` still works as before.
+- `/health` remains public.
+- `/webhook/github` remains public.
+
+### Intentionally Not Implemented In Phase 5
+- Full repository management dashboard flows beyond list + toggle.
+- Discord settings and alert routing updates.
+- Detection pipeline upgrade work.
+- V1 detections migration.
+- V1 webhook/scanner behavior changes.
+
+### Readiness
+- Phase 5 is complete and ready for **Phase 6 Per-User Discord Alerts**.

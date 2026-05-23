@@ -30,8 +30,8 @@ class Settings(BaseSettings):
     n8n_webhook_url: str = ""
     # TODO(V2): Move alert destinations to user/workspace-owned Discord
     # webhook records instead of one global deployment webhook.
-
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    discord_webhook_encryption_key: str | None = None
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8",extra="ignore")
 
 
 settings = Settings()

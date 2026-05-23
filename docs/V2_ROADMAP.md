@@ -83,9 +83,10 @@ Status: prepared in this repository.
 
 ## Phase 5: Repository Management
 
-- Status: next.
+- Status: completed.
 - Completed Phase 5.1: Protected backend repository APIs added to list workspace repositories and update `monitoring_enabled` with workspace ownership checks.
 - Completed Phase 5.2: Protected dashboard repositories page added with repository list and monitoring toggle using Phase 5.1 APIs.
+- Completed Phase 5.3: Final Phase 5 verification and documentation cleanup for repository management readiness.
 - Add dashboard pages for connected GitHub account/installations.
 - List installed repositories.
 - Allow users to enable or disable monitoring per repository.
@@ -94,6 +95,7 @@ Status: prepared in this repository.
 
 ## Phase 6: Per-User Discord Alerts
 
+- Status: next.
 - Add dashboard settings for Discord webhook URL.
 - Store Discord webhook URLs securely in Supabase.
 - Add a "send test alert" backend endpoint.
