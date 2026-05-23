@@ -57,11 +57,13 @@ Status: prepared in this repository.
 
 ## Phase 3: Multi-User Database Schema
 
-- Status: in progress.
+- Status: completed.
 - Completed Phase 3.1: Workspaces and workspace_members database schema with RLS, performance indexes, and profile-triggered auto-creation.
 - Completed Phase 3.2: GitHub Installations and Repositories database schema with RLS, helper policies for owners/admins, and performance indexes.
 - Completed Phase 3.3: Discord Webhooks database schema with ciphertext storage, RLS, and performance indexes.
-- Remaining Phase 3.4+: Add scan_events, detections_v2, and RLS policies for them.
+- Completed Phase 3.4: Scan Events and V2 Detections database schema with RLS, check constraints, and performance indexes.
+- Completed Phase 3.5: Full RLS policy review and hardening across all 7 V2 tables. Inline policy intent comments added. Privilege escalation and cross-workspace write protection verified. Index coverage confirmed.
+- Completed Phase 3.6: Final Phase 3 verification and documentation cleanup. Confirmed schema completeness, RLS coverage, index coverage, idempotent SQL shape, and Phase 4 readiness.
 - Keep service-role-only backend writes for webhook ingestion.
 - Migrate or isolate the V1 `detections` table before changing production data shape.
 

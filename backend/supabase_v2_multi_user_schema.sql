@@ -6,8 +6,8 @@
 -- 3. Paste this full file.
 -- 4. Run it once.
 --
--- This file contains Phase 3.1, Phase 3.2, and Phase 3.3 definitions.
--- It does not create scan events or V2 detections.
+-- This file contains all Phase 3 definitions (3.1 to 3.4), reviewed and hardened
+-- in Phase 3.5 for strict multi-user RLS isolation and performant indexing.
 
 -- Enable UUID extension if not already enabled
 create extension if not exists "uuid-ossp";
@@ -46,6 +46,7 @@ create table if not exists public.workspace_members (
 create index if not exists idx_workspaces_owner_user_id on public.workspaces(owner_user_id);
 create index if not exists idx_workspace_members_user_id on public.workspace_members(user_id);
 create index if not exists idx_workspace_members_workspace_id on public.workspace_members(workspace_id);
+create index if not exists idx_workspace_members_user_workspace_role on public.workspace_members(user_id, workspace_id, role);
 
 -- ==========================================
 -- 3. Automatic updated_at Triggers (Phase 3.1)
@@ -144,7 +145,7 @@ end;
 $$;
 
 -- ==========================================
--- Helper Functions for RLS (Phase 3.1 & 3.2 & 3.3)
+-- Helper Functions for RLS (Phase 3.1 & 3.2 & 3.3 & 3.4)
 -- ==========================================
 
 -- Helper function to break infinite recursion in workspace membership policies.
@@ -176,6 +177,23 @@ as $$
   );
 $$;
 
+-- Helper function to check if a user is an owner of a workspace.
+-- Runs with security definer to bypass RLS.
+create or replace function public.is_workspace_owner(workspace_id uuid, user_id uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.workspace_members
+    where workspace_members.workspace_id = $1
+      and workspace_members.user_id = $2
+      and workspace_members.role = 'owner'
+  );
+$$;
+
 -- ==========================================
 -- 5. Row-Level Security (RLS) Policies (Phase 3.1)
 -- ==========================================
@@ -185,6 +203,8 @@ alter table public.workspaces enable row level security;
 alter table public.workspace_members enable row level security;
 
 -- 5a. workspaces Policies
+
+-- INTENT: Workspace members can select/view their workspaces.
 drop policy if exists "workspaces_select" on public.workspaces;
 create policy "workspaces_select" on public.workspaces
 for select to authenticated
@@ -193,6 +213,7 @@ using (
   or id in (select public.get_workspaces_for_user(auth.uid()))
 );
 
+-- INTENT: Authenticated users can insert a workspace only if they mark themselves as owner.
 drop policy if exists "workspaces_insert" on public.workspaces;
 create policy "workspaces_insert" on public.workspaces
 for insert to authenticated
@@ -200,6 +221,7 @@ with check (
   owner_user_id = auth.uid()
 );
 
+-- INTENT: Only the workspace owner can update workspace settings (e.g. name).
 drop policy if exists "workspaces_update" on public.workspaces;
 create policy "workspaces_update" on public.workspaces
 for update to authenticated
@@ -210,6 +232,7 @@ with check (
   owner_user_id = auth.uid()
 );
 
+-- INTENT: Only the workspace owner can delete the workspace.
 drop policy if exists "workspaces_delete" on public.workspaces;
 create policy "workspaces_delete" on public.workspaces
 for delete to authenticated
@@ -218,46 +241,58 @@ using (
 );
 
 -- 5b. workspace_members Policies
+
+-- INTENT: Workspace members can view other members belonging to the same workspace.
 drop policy if exists "workspace_members_select" on public.workspace_members;
 create policy "workspace_members_select" on public.workspace_members
 for select to authenticated
 using (
-  user_id = auth.uid()
-  or workspace_id in (
-    select id from public.workspaces where owner_user_id = auth.uid()
-  )
-  or workspace_id in (select public.get_workspaces_for_user(auth.uid()))
+  workspace_id in (select public.get_workspaces_for_user(auth.uid()))
 );
 
+-- INTENT: Only workspace owners and admins can add new members.
+-- Admins can add admins or members, but only owners can create another owner.
 drop policy if exists "workspace_members_insert" on public.workspace_members;
 create policy "workspace_members_insert" on public.workspace_members
 for insert to authenticated
 with check (
-  workspace_id in (
-    select id from public.workspaces where owner_user_id = auth.uid()
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+  and (
+    role <> 'owner'
+    or public.is_workspace_owner(workspace_id, auth.uid())
   )
 );
 
+-- INTENT: Only workspace owners and admins can update member roles (e.g., admin, member).
+-- Admins cannot change owner records or promote users to owner, preventing privilege escalation.
 drop policy if exists "workspace_members_update" on public.workspace_members;
 create policy "workspace_members_update" on public.workspace_members
 for update to authenticated
 using (
-  workspace_id in (
-    select id from public.workspaces where owner_user_id = auth.uid()
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+  and (
+    role <> 'owner'
+    or public.is_workspace_owner(workspace_id, auth.uid())
   )
 )
 with check (
-  workspace_id in (
-    select id from public.workspaces where owner_user_id = auth.uid()
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+  and (
+    role <> 'owner'
+    or public.is_workspace_owner(workspace_id, auth.uid())
   )
 );
 
+-- INTENT: Only workspace owners and admins can remove members.
+-- Admins cannot remove owner records.
 drop policy if exists "workspace_members_delete" on public.workspace_members;
 create policy "workspace_members_delete" on public.workspace_members
 for delete to authenticated
 using (
-  workspace_id in (
-    select id from public.workspaces where owner_user_id = auth.uid()
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+  and (
+    role <> 'owner'
+    or public.is_workspace_owner(workspace_id, auth.uid())
   )
 );
 
@@ -321,6 +356,8 @@ create index if not exists idx_repositories_github_installation_id on public.rep
 create index if not exists idx_repositories_github_repo_id on public.repositories(github_repo_id);
 create index if not exists idx_repositories_full_name on public.repositories(full_name);
 create index if not exists idx_repositories_monitoring_enabled on public.repositories(monitoring_enabled);
+create index if not exists idx_repositories_workspace_github_repo_id on public.repositories(workspace_id, github_repo_id);
+create index if not exists idx_repositories_workspace_full_name on public.repositories(workspace_id, full_name);
 
 -- ==========================================
 -- 3. Automatic updated_at Triggers (Phase 3.2)
@@ -348,6 +385,8 @@ alter table public.github_installations enable row level security;
 alter table public.repositories enable row level security;
 
 -- github_installations Policies
+
+-- INTENT: Workspace members can view active GitHub installations for their workspace.
 drop policy if exists "github_installations_select" on public.github_installations;
 create policy "github_installations_select" on public.github_installations
 for select to authenticated
@@ -355,6 +394,7 @@ using (
   workspace_id in (select public.get_workspaces_for_user(auth.uid()))
 );
 
+-- INTENT: Only workspace owners and admins can register a new GitHub installation.
 drop policy if exists "github_installations_insert" on public.github_installations;
 create policy "github_installations_insert" on public.github_installations
 for insert to authenticated
@@ -362,6 +402,7 @@ with check (
   public.is_workspace_admin_or_owner(workspace_id, auth.uid())
 );
 
+-- INTENT: Only workspace owners and admins can update GitHub installation settings.
 drop policy if exists "github_installations_update" on public.github_installations;
 create policy "github_installations_update" on public.github_installations
 for update to authenticated
@@ -372,6 +413,7 @@ with check (
   public.is_workspace_admin_or_owner(workspace_id, auth.uid())
 );
 
+-- INTENT: Only workspace owners and admins can delete a GitHub installation.
 drop policy if exists "github_installations_delete" on public.github_installations;
 create policy "github_installations_delete" on public.github_installations
 for delete to authenticated
@@ -380,6 +422,8 @@ using (
 );
 
 -- repositories Policies
+
+-- INTENT: Workspace members can view monitored repositories under their workspace.
 drop policy if exists "repositories_select" on public.repositories;
 create policy "repositories_select" on public.repositories
 for select to authenticated
@@ -387,13 +431,20 @@ using (
   workspace_id in (select public.get_workspaces_for_user(auth.uid()))
 );
 
+-- INTENT: Only workspace owners and admins can link new repositories.
 drop policy if exists "repositories_insert" on public.repositories;
 create policy "repositories_insert" on public.repositories
 for insert to authenticated
 with check (
   public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+  and exists (
+    select 1 from public.github_installations
+    where github_installations.id = github_installation_id
+      and github_installations.workspace_id = repositories.workspace_id
+  )
 );
 
+-- INTENT: Only workspace owners and admins can modify repository properties (e.g. toggle monitoring_enabled).
 drop policy if exists "repositories_update" on public.repositories;
 create policy "repositories_update" on public.repositories
 for update to authenticated
@@ -402,8 +453,14 @@ using (
 )
 with check (
   public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+  and exists (
+    select 1 from public.github_installations
+    where github_installations.id = github_installation_id
+      and github_installations.workspace_id = repositories.workspace_id
+  )
 );
 
+-- INTENT: Only workspace owners and admins can delete a repository link.
 drop policy if exists "repositories_delete" on public.repositories;
 create policy "repositories_delete" on public.repositories
 for delete to authenticated
@@ -449,6 +506,7 @@ create table if not exists public.discord_webhooks (
 create index if not exists idx_discord_webhooks_workspace_id on public.discord_webhooks(workspace_id);
 create index if not exists idx_discord_webhooks_enabled on public.discord_webhooks(enabled);
 create index if not exists idx_discord_webhooks_created_by_user_id on public.discord_webhooks(created_by_user_id);
+create index if not exists idx_discord_webhooks_workspace_enabled on public.discord_webhooks(workspace_id, enabled);
 
 -- ==========================================
 -- 3. Automatic updated_at Triggers (Phase 3.3)
@@ -468,6 +526,8 @@ execute function public.set_updated_at();
 alter table public.discord_webhooks enable row level security;
 
 -- discord_webhooks Policies
+
+-- INTENT: Workspace members can view configured Discord webhooks for their workspace.
 drop policy if exists "discord_webhooks_select" on public.discord_webhooks;
 create policy "discord_webhooks_select" on public.discord_webhooks
 for select to authenticated
@@ -475,6 +535,7 @@ using (
   workspace_id in (select public.get_workspaces_for_user(auth.uid()))
 );
 
+-- INTENT: Only workspace owners and admins can configure a new Discord webhook channel.
 drop policy if exists "discord_webhooks_insert" on public.discord_webhooks;
 create policy "discord_webhooks_insert" on public.discord_webhooks
 for insert to authenticated
@@ -482,6 +543,7 @@ with check (
   public.is_workspace_admin_or_owner(workspace_id, auth.uid())
 );
 
+-- INTENT: Only workspace owners and admins can update Discord webhook configs.
 drop policy if exists "discord_webhooks_update" on public.discord_webhooks;
 create policy "discord_webhooks_update" on public.discord_webhooks
 for update to authenticated
@@ -492,6 +554,7 @@ with check (
   public.is_workspace_admin_or_owner(workspace_id, auth.uid())
 );
 
+-- INTENT: Only workspace owners and admins can delete a Discord webhook.
 drop policy if exists "discord_webhooks_delete" on public.discord_webhooks;
 create policy "discord_webhooks_delete" on public.discord_webhooks
 for delete to authenticated
@@ -504,3 +567,241 @@ using (
 -- ==========================================
 
 grant select, insert, update, delete on public.discord_webhooks to authenticated;
+
+
+-- ==========================================
+-- Phase 3.4 Scan Events And V2 Detections
+-- ==========================================
+
+-- ==========================================
+-- 1. Table Definitions (Phase 3.4)
+-- ==========================================
+
+-- scan_events table
+create table if not exists public.scan_events (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  repository_id uuid references public.repositories(id) on delete set null,
+  github_delivery_id text,
+  event_type text not null default 'push',
+  repo_full_name text,
+  branch text,
+  commit_sha text,
+  status text not null default 'pending',
+  error_message text,
+  started_at timestamptz,
+  completed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint chk_scan_status check (status in ('pending', 'running', 'completed', 'failed', 'skipped'))
+);
+
+-- v2_detections table
+create table if not exists public.v2_detections (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  repository_id uuid references public.repositories(id) on delete set null,
+  scan_event_id uuid references public.scan_events(id) on delete cascade,
+  repo_full_name text,
+  branch text,
+  commit_sha text,
+  file_path text not null,
+  line_number integer,
+  secret_type text not null,
+  masked_value text not null,
+  detection_method text,
+  entropy_score numeric,
+  severity text not null default 'medium',
+  confidence_score numeric,
+  ai_reasoning text,
+  ai_recommendation text,
+  status text not null default 'open',
+  detected_at timestamptz not null default now(),
+  resolved_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint chk_v2_severity check (severity in ('low', 'medium', 'high', 'critical')),
+  constraint chk_v2_status check (status in ('open', 'ignored', 'resolved', 'false_positive'))
+);
+
+-- ==========================================
+-- 2. Indexes for Performance (Phase 3.4)
+-- ==========================================
+
+create index if not exists idx_scan_events_workspace_id on public.scan_events(workspace_id);
+create index if not exists idx_scan_events_repository_id on public.scan_events(repository_id);
+create index if not exists idx_scan_events_github_delivery_id on public.scan_events(github_delivery_id);
+create index if not exists idx_scan_events_commit_sha on public.scan_events(commit_sha);
+create index if not exists idx_scan_events_status on public.scan_events(status);
+create index if not exists idx_scan_events_created_at on public.scan_events(created_at);
+create index if not exists idx_scan_events_workspace_repository_id on public.scan_events(workspace_id, repository_id);
+create index if not exists idx_scan_events_workspace_github_delivery_id on public.scan_events(workspace_id, github_delivery_id);
+create index if not exists idx_scan_events_workspace_status_created_at on public.scan_events(workspace_id, status, created_at desc);
+create index if not exists idx_scan_events_workspace_created_at on public.scan_events(workspace_id, created_at desc);
+
+create index if not exists idx_v2_detections_workspace_id on public.v2_detections(workspace_id);
+create index if not exists idx_v2_detections_repository_id on public.v2_detections(repository_id);
+create index if not exists idx_v2_detections_scan_event_id on public.v2_detections(scan_event_id);
+create index if not exists idx_v2_detections_severity on public.v2_detections(severity);
+create index if not exists idx_v2_detections_status on public.v2_detections(status);
+create index if not exists idx_v2_detections_secret_type on public.v2_detections(secret_type);
+create index if not exists idx_v2_detections_detected_at on public.v2_detections(detected_at);
+create index if not exists idx_v2_detections_commit_sha on public.v2_detections(commit_sha);
+create index if not exists idx_v2_detections_workspace_repository_id on public.v2_detections(workspace_id, repository_id);
+create index if not exists idx_v2_detections_workspace_scan_event_id on public.v2_detections(workspace_id, scan_event_id);
+create index if not exists idx_v2_detections_workspace_severity_status_detected_at on public.v2_detections(workspace_id, severity, status, detected_at desc);
+create index if not exists idx_v2_detections_workspace_status_detected_at on public.v2_detections(workspace_id, status, detected_at desc);
+
+-- ==========================================
+-- 3. Automatic updated_at Triggers (Phase 3.4)
+-- ==========================================
+
+-- scan_events updated_at trigger
+drop trigger if exists set_scan_events_updated_at on public.scan_events;
+create trigger set_scan_events_updated_at
+before update on public.scan_events
+for each row
+execute function public.set_updated_at();
+
+-- v2_detections updated_at trigger
+drop trigger if exists set_v2_detections_updated_at on public.v2_detections;
+create trigger set_v2_detections_updated_at
+before update on public.v2_detections
+for each row
+execute function public.set_updated_at();
+
+-- ==========================================
+-- 4. Row-Level Security (RLS) Policies (Phase 3.4)
+-- ==========================================
+
+alter table public.scan_events enable row level security;
+alter table public.v2_detections enable row level security;
+
+-- scan_events Policies
+
+-- INTENT: Workspace members can view scan events for their workspace.
+drop policy if exists "scan_events_select" on public.scan_events;
+create policy "scan_events_select" on public.scan_events
+for select to authenticated
+using (
+  workspace_id in (select public.get_workspaces_for_user(auth.uid()))
+);
+
+-- INTENT: Only workspace owners and admins can manually trigger/register a scan event.
+drop policy if exists "scan_events_insert" on public.scan_events;
+create policy "scan_events_insert" on public.scan_events
+for insert to authenticated
+with check (
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+  and (
+    repository_id is null
+    or exists (
+      select 1 from public.repositories
+      where repositories.id = repository_id
+        and repositories.workspace_id = scan_events.workspace_id
+    )
+  )
+);
+
+-- INTENT: Only workspace owners and admins can update scan event states.
+drop policy if exists "scan_events_update" on public.scan_events;
+create policy "scan_events_update" on public.scan_events
+for update to authenticated
+using (
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+)
+with check (
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+  and (
+    repository_id is null
+    or exists (
+      select 1 from public.repositories
+      where repositories.id = repository_id
+        and repositories.workspace_id = scan_events.workspace_id
+    )
+  )
+);
+
+-- INTENT: Only workspace owners and admins can delete scan event logs.
+drop policy if exists "scan_events_delete" on public.scan_events;
+create policy "scan_events_delete" on public.scan_events
+for delete to authenticated
+using (
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+);
+
+-- v2_detections Policies
+
+-- INTENT: Workspace members can view detections under their workspace.
+drop policy if exists "v2_detections_select" on public.v2_detections;
+create policy "v2_detections_select" on public.v2_detections
+for select to authenticated
+using (
+  workspace_id in (select public.get_workspaces_for_user(auth.uid()))
+);
+
+-- INTENT: Only workspace owners and admins can add detections to the workspace.
+drop policy if exists "v2_detections_insert" on public.v2_detections;
+create policy "v2_detections_insert" on public.v2_detections
+for insert to authenticated
+with check (
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+  and (
+    repository_id is null
+    or exists (
+      select 1 from public.repositories
+      where repositories.id = repository_id
+        and repositories.workspace_id = v2_detections.workspace_id
+    )
+  )
+  and (
+    scan_event_id is null
+    or exists (
+      select 1 from public.scan_events
+      where scan_events.id = scan_event_id
+        and scan_events.workspace_id = v2_detections.workspace_id
+    )
+  )
+);
+
+-- INTENT: Only workspace owners and admins can update detections (e.g. status changes).
+drop policy if exists "v2_detections_update" on public.v2_detections;
+create policy "v2_detections_update" on public.v2_detections
+for update to authenticated
+using (
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+)
+with check (
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+  and (
+    repository_id is null
+    or exists (
+      select 1 from public.repositories
+      where repositories.id = repository_id
+        and repositories.workspace_id = v2_detections.workspace_id
+    )
+  )
+  and (
+    scan_event_id is null
+    or exists (
+      select 1 from public.scan_events
+      where scan_events.id = scan_event_id
+        and scan_events.workspace_id = v2_detections.workspace_id
+    )
+  )
+);
+
+-- INTENT: Only workspace owners and admins can delete detection records.
+drop policy if exists "v2_detections_delete" on public.v2_detections;
+create policy "v2_detections_delete" on public.v2_detections
+for delete to authenticated
+using (
+  public.is_workspace_admin_or_owner(workspace_id, auth.uid())
+);
+
+-- ==========================================
+-- 5. Role Permissions Granting (Phase 3.4)
+-- ==========================================
+
+grant select, insert, update, delete on public.scan_events to authenticated;
+grant select, insert, update, delete on public.v2_detections to authenticated;
