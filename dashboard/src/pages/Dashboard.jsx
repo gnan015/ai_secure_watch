@@ -16,6 +16,7 @@ import {
   fetchSeverityStats,
   fetchSummaryStats,
   fetchTrendStats,
+  getV2DashboardOverview,
   updateDetectionStatus,
 } from "../services/api.js";
 
@@ -28,6 +29,7 @@ const initialFilters = {
 function Dashboard() {
   const navigate = useNavigate();
   const { signOut } = useAuth();
+  const [v2Overview, setV2Overview] = useState(null);
   const [summary, setSummary] = useState(null);
   const [recentDetections, setRecentDetections] = useState([]);
   const [detections, setDetections] = useState([]);
@@ -52,6 +54,7 @@ function Dashboard() {
         severityData,
         secretTypeData,
         trendData,
+        v2OverviewData,
       ] = await Promise.all([
         fetchSummaryStats(),
         fetchRecentDetections(10),
@@ -59,8 +62,10 @@ function Dashboard() {
         fetchSeverityStats(),
         fetchSecretTypeStats(),
         fetchTrendStats(),
+        getV2DashboardOverview(),
       ]);
 
+      setV2Overview(v2OverviewData);
       setSummary(summaryData);
       setRecentDetections(recentData);
       setDetections(detectionsData);
@@ -132,7 +137,13 @@ function Dashboard() {
             Repositories
           </Link>
           <Link className="refresh-button" to="/integrations/discord">
-            Discord Alerts
+            Discord
+          </Link>
+          <Link className="refresh-button" to="/scan-events">
+            Scan Events
+          </Link>
+          <Link className="refresh-button" to="/detections">
+            Detections
           </Link>
           <button className="refresh-button" onClick={loadDashboardData}>
             Refresh
@@ -154,6 +165,49 @@ function Dashboard() {
         <div className="loading-state">Loading dashboard data...</div>
       ) : (
         <>
+          <section className="summary-grid" aria-label="V2 overview">
+            <article className="summary-card">
+              <span>Total repositories</span>
+              <strong>{v2Overview?.total_repositories ?? 0}</strong>
+            </article>
+            <article className="summary-card resolved">
+              <span>Monitored repositories</span>
+              <strong>{v2Overview?.monitored_repositories ?? 0}</strong>
+            </article>
+            <article className="summary-card">
+              <span>Total scan events</span>
+              <strong>{v2Overview?.total_scan_events ?? 0}</strong>
+            </article>
+            <article className="summary-card high">
+              <span>Failed scan events</span>
+              <strong>{v2Overview?.failed_scan_events ?? 0}</strong>
+            </article>
+            <article className="summary-card">
+              <span>Total detections</span>
+              <strong>{v2Overview?.total_detections ?? 0}</strong>
+            </article>
+            <article className="summary-card">
+              <span>Open detections</span>
+              <strong>{v2Overview?.open_detections ?? 0}</strong>
+            </article>
+            <article className="summary-card critical">
+              <span>Critical detections</span>
+              <strong>{v2Overview?.critical_detections ?? 0}</strong>
+            </article>
+            <article className="summary-card high">
+              <span>High detections</span>
+              <strong>{v2Overview?.high_detections ?? 0}</strong>
+            </article>
+            <article className="summary-card">
+              <span>Latest scan</span>
+              <strong className="timestamp-value">
+                {v2Overview?.latest_scan_at
+                  ? new Date(v2Overview.latest_scan_at).toLocaleDateString()
+                  : "-"}
+              </strong>
+            </article>
+          </section>
+
           <SummaryCards summary={summary} />
           <RecentDetections detections={recentDetections} />
 

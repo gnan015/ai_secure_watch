@@ -120,7 +120,11 @@ Status: prepared in this repository.
 
 ## Phase 8: Dashboard V2
 
-- Status: next.
+- Status: completed for dashboard/API implementation.
+- Completed Phase 8.1: Protected backend V2 dashboard APIs added for workspace-scoped overview, scan events, detections, and detection status updates. Responses return masked detection values only and leave V1 dashboard APIs unchanged.
+- Completed Phase 8.2: Dashboard V2 UI pages added for overview cards, scan events, detections, and detection status updates using auth-protected workspace-scoped APIs. Raw secrets are not requested or displayed.
+- Completed Phase 8.3: Final Phase 8 verification and documentation cleanup. Build/tests pass, V2 routes and APIs are documented, raw secret display remains blocked, and V1 behavior remains unchanged.
+- Pending manual follow-up: live fake-secret webhook scan data verification after Render deployment and GitHub webhook redelivery. Do not mark live V2 ingestion verified until `scan_events` and `v2_detections` rows are observed from a real GitHub App push.
 - Add authenticated app layout and navigation.
 - Add pages for overview, detections, repositories, integrations, alert settings, and account settings.
 - Scope all dashboard data to the logged-in user.
@@ -129,6 +133,7 @@ Status: prepared in this repository.
 
 ## Phase 9: Public Readiness
 
+- Status: next.
 - Add error reporting and structured logs.
 - Add rate-limit handling for GitHub API calls.
 - Add audit/event logs for installations, repository changes, and alert delivery.

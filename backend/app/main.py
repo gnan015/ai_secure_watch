@@ -7,6 +7,7 @@ from app.routes.discord_webhooks import router as discord_webhooks_router
 from app.routes.github_app import router as github_app_router
 from app.routes.health import router as health_router
 from app.routes.repositories import router as repositories_router
+from app.routes.v2_dashboard import router as v2_dashboard_router
 from app.routes.webhook import router as webhook_router
 
 app = FastAPI(title=settings.app_name)
@@ -33,3 +34,4 @@ app.include_router(detections_router, prefix="/api")
 app.include_router(github_app_router, prefix="/api")
 app.include_router(repositories_router, prefix="/api")
 app.include_router(discord_webhooks_router, prefix="/api")
+app.include_router(v2_dashboard_router, prefix="/api")

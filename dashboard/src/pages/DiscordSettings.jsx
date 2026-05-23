@@ -180,6 +180,12 @@ function DiscordSettings() {
           <Link className="refresh-button" to="/repositories">
             Repositories
           </Link>
+          <Link className="refresh-button" to="/scan-events">
+            Scan Events
+          </Link>
+          <Link className="refresh-button" to="/detections">
+            Detections
+          </Link>
           <button className="refresh-button" onClick={loadWebhooks}>
             Refresh
           </button>

@@ -123,3 +123,26 @@ export async function testDiscordWebhook(webhookId) {
   );
   return response.data;
 }
+
+export async function getV2DashboardOverview() {
+  const response = await apiClient.get("/api/v2/dashboard/overview");
+  return response.data;
+}
+
+export async function getV2ScanEvents(params = {}) {
+  const response = await apiClient.get("/api/v2/scan-events", { params });
+  return response.data;
+}
+
+export async function getV2Detections(params = {}) {
+  const response = await apiClient.get("/api/v2/detections", { params });
+  return response.data;
+}
+
+export async function updateV2DetectionStatus(detectionId, status) {
+  const response = await apiClient.patch(
+    `/api/v2/detections/${detectionId}/status`,
+    { status }
+  );
+  return response.data;
+}

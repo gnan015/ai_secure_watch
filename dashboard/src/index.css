@@ -140,6 +140,10 @@ select {
   line-height: 1;
 }
 
+.summary-card .timestamp-value {
+  font-size: 1.1rem;
+}
+
 .summary-card.critical {
   border-color: rgba(220, 38, 38, 0.66);
 }
@@ -292,9 +296,18 @@ td {
 }
 
 .badge-dismissed,
+.badge-false_positive,
+.badge-failed,
+.badge-ignored,
 .badge-muted {
   background: rgba(113, 113, 122, 0.18);
   color: #d4d4d8;
+}
+
+.badge-completed,
+.badge-running {
+  background: rgba(34, 197, 94, 0.18);
+  color: #bbf7d0;
 }
 
 .filters {

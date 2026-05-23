@@ -71,6 +71,15 @@ function Repositories() {
           <Link className="refresh-button" to="/dashboard">
             Dashboard
           </Link>
+          <Link className="refresh-button" to="/scan-events">
+            Scan Events
+          </Link>
+          <Link className="refresh-button" to="/detections">
+            Detections
+          </Link>
+          <Link className="refresh-button" to="/integrations/discord">
+            Discord
+          </Link>
           <button className="refresh-button" onClick={loadRepositories}>
             Refresh
           </button>

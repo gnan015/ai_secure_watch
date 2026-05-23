@@ -4,9 +4,11 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "./context/AuthContext.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
+import Detections from "./pages/Detections.jsx";
 import DiscordSettings from "./pages/DiscordSettings.jsx";
 import Login from "./pages/Login.jsx";
 import Repositories from "./pages/Repositories.jsx";
+import ScanEvents from "./pages/ScanEvents.jsx";
 
 function RootRedirect() {
   const { loading, session, user } = useAuth();
@@ -50,6 +52,22 @@ function App() {
           element={
             <ProtectedRoute>
               <DiscordSettings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/scan-events"
+          element={
+            <ProtectedRoute>
+              <ScanEvents />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/detections"
+          element={
+            <ProtectedRoute>
+              <Detections />
             </ProtectedRoute>
           }
         />

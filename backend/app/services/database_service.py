@@ -51,6 +51,27 @@ SAFE_DETECTION_FIELDS = [
     "resolved_at",
 ]
 ALLOWED_STATUSES = {"open", "resolved", "dismissed"}
+V2_ALLOWED_DETECTION_STATUSES = {"open", "ignored", "resolved", "false_positive"}
+V2_DETECTION_SAFE_FIELDS = [
+    "id",
+    "repository_id",
+    "scan_event_id",
+    "repo_full_name",
+    "branch",
+    "commit_sha",
+    "file_path",
+    "line_number",
+    "secret_type",
+    "masked_value",
+    "detection_method",
+    "severity",
+    "confidence_score",
+    "ai_reasoning",
+    "ai_recommendation",
+    "status",
+    "detected_at",
+    "created_at",
+]
 V2_DETECTION_FIELDS = {
     "workspace_id",
     "repository_id",
@@ -70,6 +91,18 @@ V2_DETECTION_FIELDS = {
     "ai_recommendation",
     "status",
 }
+V2_SCAN_EVENT_SAFE_FIELDS = [
+    "id",
+    "repository_id",
+    "repo_full_name",
+    "branch",
+    "commit_sha",
+    "status",
+    "error_message",
+    "started_at",
+    "completed_at",
+    "created_at",
+]
 
 
 class DatabaseError(Exception):
@@ -634,6 +667,192 @@ def create_v2_detections_bulk(detections: list[dict]) -> list[dict]:
         payload=[_safe_v2_detection_payload(detection) for detection in detections],
     )
     return rows
+
+
+def _safe_v2_detection(row: dict) -> dict:
+    return {field: row.get(field) for field in V2_DETECTION_SAFE_FIELDS}
+
+
+def _safe_v2_scan_event(row: dict) -> dict:
+    return {field: row.get(field) for field in V2_SCAN_EVENT_SAFE_FIELDS}
+
+
+def get_v2_dashboard_overview(user_id: str) -> dict:
+    """Return workspace-scoped V2 dashboard summary data."""
+    workspace = get_owned_workspace_for_user(user_id)
+    if not workspace:
+        return {
+            "total_repositories": 0,
+            "monitored_repositories": 0,
+            "total_scan_events": 0,
+            "completed_scan_events": 0,
+            "failed_scan_events": 0,
+            "total_detections": 0,
+            "open_detections": 0,
+            "critical_detections": 0,
+            "high_detections": 0,
+            "latest_scan_at": None,
+        }
+
+    repositories = _send_supabase_table_request(
+        "repositories",
+        "GET",
+        query_params={
+            "select": "id,monitoring_enabled",
+            "workspace_id": f"eq.{workspace['id']}",
+            "limit": 10000,
+        },
+    )
+    scan_events = _send_supabase_table_request(
+        "scan_events",
+        "GET",
+        query_params={
+            "select": "id,status,started_at,completed_at,created_at",
+            "workspace_id": f"eq.{workspace['id']}",
+            "order": "created_at.desc",
+            "limit": 10000,
+        },
+    )
+    detections = _send_supabase_table_request(
+        "v2_detections",
+        "GET",
+        query_params={
+            "select": "id,status,severity",
+            "workspace_id": f"eq.{workspace['id']}",
+            "limit": 10000,
+        },
+    )
+
+    latest_scan = scan_events[0] if scan_events else {}
+    return {
+        "total_repositories": len(repositories),
+        "monitored_repositories": sum(
+            1 for repository in repositories if repository.get("monitoring_enabled")
+        ),
+        "total_scan_events": len(scan_events),
+        "completed_scan_events": sum(
+            1 for scan_event in scan_events if scan_event.get("status") == "completed"
+        ),
+        "failed_scan_events": sum(
+            1 for scan_event in scan_events if scan_event.get("status") == "failed"
+        ),
+        "total_detections": len(detections),
+        "open_detections": sum(
+            1 for detection in detections if detection.get("status") == "open"
+        ),
+        "critical_detections": sum(
+            1 for detection in detections if detection.get("severity") == "critical"
+        ),
+        "high_detections": sum(
+            1 for detection in detections if detection.get("severity") == "high"
+        ),
+        "latest_scan_at": latest_scan.get("started_at")
+        or latest_scan.get("created_at")
+        or latest_scan.get("completed_at"),
+    }
+
+
+def list_v2_scan_events(
+    user_id: str, limit: int = 20, status: str | None = None
+) -> list[dict]:
+    """Return recent V2 scan events for the authenticated user's workspace."""
+    workspace = get_owned_workspace_for_user(user_id)
+    if not workspace:
+        return []
+
+    query_params = {
+        "select": ",".join(V2_SCAN_EVENT_SAFE_FIELDS),
+        "workspace_id": f"eq.{workspace['id']}",
+        "order": "created_at.desc",
+        "limit": max(1, min(limit, 100)),
+    }
+    if status:
+        query_params["status"] = f"eq.{status}"
+
+    rows = _send_supabase_table_request(
+        "scan_events",
+        "GET",
+        query_params=query_params,
+    )
+    return [_safe_v2_scan_event(row) for row in rows]
+
+
+def list_v2_detections(user_id: str, filters: dict | None = None) -> list[dict]:
+    """Return safe V2 detections for the authenticated user's workspace."""
+    workspace = get_owned_workspace_for_user(user_id)
+    if not workspace:
+        return []
+
+    filters = filters or {}
+    limit = max(1, min(int(filters.get("limit", 50)), 100))
+    query_params = {
+        "select": ",".join(V2_DETECTION_SAFE_FIELDS),
+        "workspace_id": f"eq.{workspace['id']}",
+        "order": "detected_at.desc",
+        "limit": limit,
+    }
+
+    if filters.get("status"):
+        query_params["status"] = f"eq.{str(filters['status']).lower()}"
+    if filters.get("severity"):
+        query_params["severity"] = f"eq.{str(filters['severity']).lower()}"
+    if filters.get("repository_id"):
+        query_params["repository_id"] = f"eq.{filters['repository_id']}"
+
+    rows = _send_supabase_table_request(
+        "v2_detections",
+        "GET",
+        query_params=query_params,
+    )
+    return [_safe_v2_detection(row) for row in rows]
+
+
+def update_v2_detection_status(
+    user_id: str, detection_id: str, status: str
+) -> dict | None:
+    """Update a workspace-owned V2 detection status."""
+    normalized_status = status.lower()
+    if normalized_status not in V2_ALLOWED_DETECTION_STATUSES:
+        raise InvalidDetectionStatusError("Invalid V2 detection status")
+
+    workspace = get_owned_workspace_for_user(user_id)
+    if not workspace:
+        return None
+
+    existing = _send_supabase_table_request(
+        "v2_detections",
+        "GET",
+        query_params={
+            "select": "id",
+            "id": f"eq.{detection_id}",
+            "workspace_id": f"eq.{workspace['id']}",
+            "limit": 1,
+        },
+    )
+    if not existing:
+        return None
+
+    payload = {
+        "status": normalized_status,
+        "resolved_at": (
+            datetime.now(timezone.utc).isoformat()
+            if normalized_status == "resolved"
+            else None
+        ),
+    }
+    rows = _send_supabase_table_request(
+        "v2_detections",
+        "PATCH",
+        query_params={
+            "id": f"eq.{detection_id}",
+            "workspace_id": f"eq.{workspace['id']}",
+            "select": ",".join(V2_DETECTION_SAFE_FIELDS),
+        },
+        payload=payload,
+    )
+    if not rows:
+        return None
+    return _safe_v2_detection(rows[0])
 
 
 def upsert_repositories_for_installation(
