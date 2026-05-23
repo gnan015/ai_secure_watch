@@ -95,7 +95,8 @@ Status: prepared in this repository.
 
 ## Phase 6: Per-User Discord Alerts
 
-- Status: next.
+- Status: in progress.
+- Completed Phase 6.1: Protected backend Discord webhook management APIs added with encrypted webhook URL storage, workspace ownership checks, and backend-side test message sending.
 - Add dashboard settings for Discord webhook URL.
 - Store Discord webhook URLs securely in Supabase.
 - Add a "send test alert" backend endpoint.

@@ -563,3 +563,143 @@ def update_repository_monitoring(
     if not rows:
         return None
     return rows[0]
+
+
+def get_discord_webhooks_for_user_workspace(user_id: str) -> list[dict]:
+    """Return Discord webhooks for the authenticated user's owned workspace."""
+    workspace = get_owned_workspace_for_user(user_id)
+    if not workspace:
+        return []
+
+    return _send_supabase_table_request(
+        "discord_webhooks",
+        "GET",
+        query_params={
+            "select": (
+                "id,workspace_id,name,webhook_url_last4,enabled,last_tested_at,"
+                "last_error,created_by_user_id,created_at,updated_at"
+            ),
+            "workspace_id": f"eq.{workspace['id']}",
+            "order": "created_at.asc",
+        },
+    )
+
+
+def create_discord_webhook_for_user_workspace(
+    user_id: str,
+    name: str,
+    webhook_url_ciphertext: str,
+    webhook_url_last4: str,
+    enabled: bool = True,
+) -> dict | None:
+    """Create a Discord webhook in the authenticated user's owned workspace."""
+    workspace = get_owned_workspace_for_user(user_id)
+    if not workspace:
+        return None
+
+    rows = _send_supabase_table_request(
+        "discord_webhooks",
+        "POST",
+        payload={
+            "workspace_id": workspace["id"],
+            "name": name,
+            "webhook_url_ciphertext": webhook_url_ciphertext,
+            "webhook_url_last4": webhook_url_last4,
+            "enabled": enabled,
+            "created_by_user_id": user_id,
+        },
+    )
+    if not rows:
+        return None
+    return rows[0]
+
+
+def get_discord_webhook_for_user_workspace(
+    user_id: str, webhook_id: str, include_ciphertext: bool = False
+) -> dict | None:
+    """Get one workspace-owned Discord webhook by id."""
+    workspace = get_owned_workspace_for_user(user_id)
+    if not workspace:
+        return None
+
+    select_fields = (
+        "id,workspace_id,name,webhook_url_last4,enabled,last_tested_at,last_error,"
+        "created_by_user_id,created_at,updated_at"
+    )
+    if include_ciphertext:
+        select_fields = (
+            "id,workspace_id,name,webhook_url_ciphertext,webhook_url_last4,enabled,"
+            "last_tested_at,last_error,created_by_user_id,created_at,updated_at"
+        )
+
+    rows = _send_supabase_table_request(
+        "discord_webhooks",
+        "GET",
+        query_params={
+            "select": select_fields,
+            "id": f"eq.{webhook_id}",
+            "workspace_id": f"eq.{workspace['id']}",
+            "limit": 1,
+        },
+    )
+    if not rows:
+        return None
+    return rows[0]
+
+
+def update_discord_webhook_for_user_workspace(
+    user_id: str,
+    webhook_id: str,
+    patch_data: dict,
+) -> dict | None:
+    """Update a workspace-owned Discord webhook and return safe fields."""
+    workspace = get_owned_workspace_for_user(user_id)
+    if not workspace:
+        return None
+
+    allowed = {
+        "name",
+        "enabled",
+        "webhook_url_ciphertext",
+        "webhook_url_last4",
+        "last_tested_at",
+        "last_error",
+    }
+    payload = {k: v for k, v in patch_data.items() if k in allowed}
+    if not payload:
+        return get_discord_webhook_for_user_workspace(user_id, webhook_id)
+
+    rows = _send_supabase_table_request(
+        "discord_webhooks",
+        "PATCH",
+        query_params={
+            "id": f"eq.{webhook_id}",
+            "workspace_id": f"eq.{workspace['id']}",
+            "select": (
+                "id,workspace_id,name,webhook_url_last4,enabled,last_tested_at,"
+                "last_error,created_by_user_id,created_at,updated_at"
+            ),
+        },
+        payload=payload,
+    )
+    if not rows:
+        return None
+    return rows[0]
+
+
+def delete_discord_webhook_for_user_workspace(user_id: str, webhook_id: str) -> bool:
+    """Delete a workspace-owned Discord webhook."""
+    workspace = get_owned_workspace_for_user(user_id)
+    if not workspace:
+        return False
+
+    rows = _send_supabase_table_request(
+        "discord_webhooks",
+        "DELETE",
+        query_params={
+            "id": f"eq.{webhook_id}",
+            "workspace_id": f"eq.{workspace['id']}",
+            "select": "id",
+        },
+    )
+    return bool(rows)

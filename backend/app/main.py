@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.routes.detections import router as detections_router
+from app.routes.discord_webhooks import router as discord_webhooks_router
 from app.routes.github_app import router as github_app_router
 from app.routes.health import router as health_router
 from app.routes.repositories import router as repositories_router
@@ -31,3 +32,4 @@ app.include_router(webhook_router)
 app.include_router(detections_router, prefix="/api")
 app.include_router(github_app_router, prefix="/api")
 app.include_router(repositories_router, prefix="/api")
+app.include_router(discord_webhooks_router, prefix="/api")
