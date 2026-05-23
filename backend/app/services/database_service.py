@@ -81,6 +81,16 @@ def _get_supabase_rest_url() -> str:
     return f"{base_url}/rest/v1/detections"
 
 
+def _get_supabase_table_url(table_name: str) -> str:
+    """Build the REST URL for any Supabase table."""
+    base_url = settings.supabase_url.rstrip("/")
+
+    if base_url.endswith("/rest/v1"):
+        return f"{base_url}/{table_name}"
+
+    return f"{base_url}/rest/v1/{table_name}"
+
+
 def _send_supabase_rest_request(
     method: str,
     query_params: dict | None = None,
@@ -105,6 +115,51 @@ def _send_supabase_rest_request(
             "Authorization": f"Bearer {settings.supabase_service_role_key}",
             "Content-Type": "application/json",
             "Prefer": "return=representation",
+        },
+        method=method,
+    )
+
+    try:
+        with urlopen(request, timeout=30) as response:
+            response_body = response.read().decode("utf-8")
+    except (HTTPError, URLError) as exc:
+        raise DatabaseError(type(exc).__name__) from exc
+
+    if not response_body:
+        return []
+
+    try:
+        return json.loads(response_body)
+    except json.JSONDecodeError as exc:
+        raise DatabaseError("Invalid Supabase JSON response") from exc
+
+
+def _send_supabase_table_request(
+    table_name: str,
+    method: str,
+    query_params: dict | None = None,
+    payload: dict | list | None = None,
+    prefer: str = "return=representation",
+) -> list:
+    """Send a Supabase REST request to a specific table and return rows."""
+    try:
+        _validate_supabase_settings()
+    except ValueError as exc:
+        raise DatabaseError("Supabase settings are missing") from exc
+
+    url = _get_supabase_table_url(table_name)
+    if query_params:
+        url = f"{url}?{urlencode(query_params)}"
+
+    request_body = json.dumps(payload).encode("utf-8") if payload is not None else None
+    request = Request(
+        url,
+        data=request_body,
+        headers={
+            "apikey": settings.supabase_service_role_key,
+            "Authorization": f"Bearer {settings.supabase_service_role_key}",
+            "Content-Type": "application/json",
+            "Prefer": prefer,
         },
         method=method,
     )
@@ -365,3 +420,87 @@ def insert_detection(detection_data: dict) -> dict:
     except Exception as exc:
         print(f"Supabase insert failed safely: {type(exc).__name__}")
         return {"stored": False, "error": type(exc).__name__}
+
+
+def get_owned_workspace_for_user(user_id: str) -> dict | None:
+    """Return one workspace owned by the given user."""
+    rows = _send_supabase_table_request(
+        "workspaces",
+        "GET",
+        query_params={
+            "select": "id,owner_user_id,name,created_at",
+            "owner_user_id": f"eq.{user_id}",
+            "order": "created_at.asc",
+            "limit": 1,
+        },
+    )
+    if not rows:
+        return None
+    return rows[0]
+
+
+def upsert_github_installation(installation_data: dict) -> dict:
+    """Upsert a github_installations row keyed by installation_id."""
+    rows = _send_supabase_table_request(
+        "github_installations",
+        "POST",
+        query_params={"on_conflict": "installation_id"},
+        payload=installation_data,
+        prefer="resolution=merge-duplicates,return=representation",
+    )
+    if not rows:
+        raise DatabaseError("GitHub installation upsert returned no rows")
+    return rows[0]
+
+
+def get_github_installation_for_workspace(
+    workspace_id: str, installation_id: int
+) -> dict | None:
+    """Return one github_installations row for a workspace + installation_id."""
+    rows = _send_supabase_table_request(
+        "github_installations",
+        "GET",
+        query_params={
+            "select": "id,workspace_id,installation_id,account_login,app_slug",
+            "workspace_id": f"eq.{workspace_id}",
+            "installation_id": f"eq.{installation_id}",
+            "limit": 1,
+        },
+    )
+    if not rows:
+        return None
+    return rows[0]
+
+
+def upsert_repositories_for_installation(
+    workspace_id: str, github_installation_db_id: str, repositories: list[dict]
+) -> list[dict]:
+    """Upsert repositories for a workspace installation using github_repo_id."""
+    if not repositories:
+        return []
+
+    payload_rows: list[dict] = []
+    for repo in repositories:
+        owner_data = repo.get("owner") or {}
+        payload_rows.append(
+            {
+                "workspace_id": workspace_id,
+                "github_installation_id": github_installation_db_id,
+                "github_repo_id": repo.get("id"),
+                "full_name": repo.get("full_name"),
+                "owner": owner_data.get("login") or "",
+                "name": repo.get("name") or "",
+                "private": bool(repo.get("private", False)),
+                "default_branch": repo.get("default_branch"),
+                "html_url": repo.get("html_url"),
+            }
+        )
+
+    rows = _send_supabase_table_request(
+        "repositories",
+        "POST",
+        query_params={"on_conflict": "github_repo_id"},
+        payload=payload_rows,
+        prefer="resolution=merge-duplicates,return=representation",
+    )
+    return rows

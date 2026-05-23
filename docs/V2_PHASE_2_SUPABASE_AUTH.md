@@ -276,6 +276,7 @@ Backend auth foundation:
 - `/health` remains public.
 - `/webhook/github` remains public.
 - Existing dashboard APIs remain unchanged.
+- Backend JWT verification now supports Supabase JWKS-signed tokens (`ES256`/`RS256`) and legacy `HS256` tokens.
 
 Database auth foundation:
 

@@ -69,6 +69,11 @@ Status: prepared in this repository.
 
 ## Phase 4: GitHub App Integration
 
+- Status: completed.
+- Completed Phase 4.1: GitHub App setup and configuration documentation, required permissions/events, required app settings, backend env placeholders, and manual setup checklist.
+- Completed Phase 4.2: GitHub App backend service added for app JWT generation, installation access token generation, installation metadata fetch, and authenticated installation save API to `github_installations`.
+- Completed Phase 4.3: Protected repository sync API added to fetch installation repositories and upsert them into `public.repositories` without duplication.
+- Completed Phase 4.4: Final Phase 4 verification and docs cleanup. Confirmed installation save and repository sync readiness and preserved V1 webhook/scanner behavior.
 - Create a GitHub App for AI SecureWatch.
 - Add GitHub App manifest/config documentation.
 - Add backend routes for GitHub App installation callbacks.
@@ -78,6 +83,7 @@ Status: prepared in this repository.
 
 ## Phase 5: Repository Management
 
+- Status: next.
 - Add dashboard pages for connected GitHub account/installations.
 - List installed repositories.
 - Allow users to enable or disable monitoring per repository.

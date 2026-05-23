@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     github_token: str = ""
     # TODO(V2): Replace the global GitHub token path with GitHub App credentials
     # and per-installation access tokens.
+    github_app_id: str = ""
+    github_app_private_key: str = ""
+    github_app_webhook_secret: str = ""
+    github_app_client_id: str = ""
+    github_app_client_secret: str = ""
 
     gemini_api_key: str = ""
 

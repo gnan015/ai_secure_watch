@@ -3,5 +3,7 @@ uvicorn
 python-dotenv
 pydantic-settings
 requests
+PyJWT
+cryptography
 google-genai
 supabase
