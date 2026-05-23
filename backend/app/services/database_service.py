@@ -51,6 +51,25 @@ SAFE_DETECTION_FIELDS = [
     "resolved_at",
 ]
 ALLOWED_STATUSES = {"open", "resolved", "dismissed"}
+V2_DETECTION_FIELDS = {
+    "workspace_id",
+    "repository_id",
+    "scan_event_id",
+    "repo_full_name",
+    "branch",
+    "commit_sha",
+    "file_path",
+    "line_number",
+    "secret_type",
+    "masked_value",
+    "detection_method",
+    "entropy_score",
+    "severity",
+    "confidence_score",
+    "ai_reasoning",
+    "ai_recommendation",
+    "status",
+}
 
 
 class DatabaseError(Exception):
@@ -470,6 +489,151 @@ def get_github_installation_for_workspace(
     if not rows:
         return None
     return rows[0]
+
+
+def find_repository_by_installation_and_repo_id(
+    installation_id: int, github_repo_id: int
+) -> dict | None:
+    """Find a V2 repository by GitHub App installation and repository IDs."""
+    installation_rows = _send_supabase_table_request(
+        "github_installations",
+        "GET",
+        query_params={
+            "select": "id,workspace_id,installation_id",
+            "installation_id": f"eq.{installation_id}",
+            "limit": 1,
+        },
+    )
+    if not installation_rows:
+        return None
+
+    installation = installation_rows[0]
+    repository_rows = _send_supabase_table_request(
+        "repositories",
+        "GET",
+        query_params={
+            "select": "id,workspace_id,full_name,monitoring_enabled",
+            "workspace_id": f"eq.{installation['workspace_id']}",
+            "github_installation_id": f"eq.{installation['id']}",
+            "github_repo_id": f"eq.{github_repo_id}",
+            "limit": 1,
+        },
+    )
+    if not repository_rows:
+        return None
+
+    repository = repository_rows[0]
+    return {
+        "workspace_id": repository.get("workspace_id"),
+        "repository_id": repository.get("id"),
+        "full_name": repository.get("full_name"),
+        "monitoring_enabled": bool(repository.get("monitoring_enabled")),
+        "github_installation_id": installation.get("installation_id"),
+    }
+
+
+def find_scan_event_by_delivery(
+    workspace_id: str, repository_id: str, github_delivery_id: str
+) -> dict | None:
+    """Return an existing scan event for a workspace/repository delivery."""
+    rows = _send_supabase_table_request(
+        "scan_events",
+        "GET",
+        query_params={
+            "select": (
+                "id,workspace_id,repository_id,github_delivery_id,event_type,"
+                "repo_full_name,branch,commit_sha,status,error_message,"
+                "started_at,completed_at,created_at"
+            ),
+            "workspace_id": f"eq.{workspace_id}",
+            "repository_id": f"eq.{repository_id}",
+            "github_delivery_id": f"eq.{github_delivery_id}",
+            "order": "created_at.desc",
+            "limit": 1,
+        },
+    )
+    if not rows:
+        return None
+    return rows[0]
+
+
+def create_scan_event(scan_event_data: dict) -> dict:
+    """Create a V2 scan event."""
+    rows = _send_supabase_table_request(
+        "scan_events",
+        "POST",
+        payload=scan_event_data,
+    )
+    if not rows:
+        raise DatabaseError("Scan event insert returned no rows")
+    return rows[0]
+
+
+def update_scan_event_status(
+    scan_event_id: str,
+    status: str,
+    error_message: str | None = None,
+    completed_at: str | None = None,
+) -> dict | None:
+    """Update status fields on a V2 scan event."""
+    payload = {
+        "status": status,
+        "error_message": error_message,
+    }
+    if completed_at is not None:
+        payload["completed_at"] = completed_at
+
+    rows = _send_supabase_table_request(
+        "scan_events",
+        "PATCH",
+        query_params={
+            "id": f"eq.{scan_event_id}",
+            "select": (
+                "id,workspace_id,repository_id,github_delivery_id,event_type,"
+                "repo_full_name,branch,commit_sha,status,error_message,"
+                "started_at,completed_at"
+            ),
+        },
+        payload=payload,
+    )
+    if not rows:
+        return None
+    return rows[0]
+
+
+def _safe_v2_detection_payload(detection_data: dict) -> dict:
+    safe_data = {
+        key: value
+        for key, value in detection_data.items()
+        if key in V2_DETECTION_FIELDS
+    }
+    safe_data.pop("raw_value", None)
+    return safe_data
+
+
+def create_v2_detection(detection_data: dict) -> dict:
+    """Create one V2 detection without storing raw secret values."""
+    rows = _send_supabase_table_request(
+        "v2_detections",
+        "POST",
+        payload=_safe_v2_detection_payload(detection_data),
+    )
+    if not rows:
+        raise DatabaseError("V2 detection insert returned no rows")
+    return rows[0]
+
+
+def create_v2_detections_bulk(detections: list[dict]) -> list[dict]:
+    """Create V2 detections in bulk without storing raw secret values."""
+    if not detections:
+        return []
+
+    rows = _send_supabase_table_request(
+        "v2_detections",
+        "POST",
+        payload=[_safe_v2_detection_payload(detection) for detection in detections],
+    )
+    return rows
 
 
 def upsert_repositories_for_installation(

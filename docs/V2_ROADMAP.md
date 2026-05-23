@@ -107,7 +107,10 @@ Status: prepared in this repository.
 
 ## Phase 7: Detection Pipeline Upgrade
 
-- Status: next.
+- Status: completed.
+- Completed Phase 7.1: GitHub App webhook routing foundation added. Push webhooks now recognize installation/repository payload fields, map installation ID plus GitHub repo ID to a V2 workspace repository, respect `monitoring_enabled`, and preserve V1 fallback behavior without creating V2 scan events or detections.
+- Completed Phase 7.2: V2 scan events and masked V2 detection storage added for monitored GitHub App repositories. The V2 path reuses installation-token commit diff fetching, added-line parsing, scanner, masking, and AI analysis, with duplicate delivery protection and no raw secret storage.
+- Completed Phase 7.3: Final Phase 7 verification and documentation cleanup. Confirmed signature protection, V2 routing, scan event lifecycle, masked-only V2 storage, duplicate delivery protection, public health route, and preserved V1 fallback/detection/notification behavior.
 - Resolve each GitHub webhook to a GitHub installation and repository.
 - Fetch diffs using installation access tokens.
 - Reuse V1 scanner and AI analysis.
@@ -117,6 +120,7 @@ Status: prepared in this repository.
 
 ## Phase 8: Dashboard V2
 
+- Status: next.
 - Add authenticated app layout and navigation.
 - Add pages for overview, detections, repositories, integrations, alert settings, and account settings.
 - Scope all dashboard data to the logged-in user.
