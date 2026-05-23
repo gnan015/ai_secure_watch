@@ -74,3 +74,19 @@ export async function updateDetectionStatus(detectionId, status) {
   );
   return response.data;
 }
+
+export async function getRepositories() {
+  const response = await apiClient.get("/api/repositories");
+  return response.data;
+}
+
+export async function updateRepositoryMonitoring(
+  repositoryId,
+  monitoringEnabled
+) {
+  const response = await apiClient.patch(
+    `/api/repositories/${repositoryId}/monitoring`,
+    { monitoring_enabled: monitoringEnabled }
+  );
+  return response.data;
+}

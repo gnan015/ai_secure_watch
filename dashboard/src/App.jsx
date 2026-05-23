@@ -5,6 +5,7 @@ import { useAuth } from "./context/AuthContext.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Login from "./pages/Login.jsx";
+import Repositories from "./pages/Repositories.jsx";
 
 function RootRedirect() {
   const { loading, session, user } = useAuth();
@@ -32,6 +33,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/repositories"
+          element={
+            <ProtectedRoute>
+              <Repositories />
             </ProtectedRoute>
           }
         />

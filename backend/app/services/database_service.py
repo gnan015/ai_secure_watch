@@ -504,3 +504,62 @@ def upsert_repositories_for_installation(
         prefer="resolution=merge-duplicates,return=representation",
     )
     return rows
+
+
+def get_repositories_for_user_workspace(user_id: str) -> list[dict]:
+    """Return repositories from the authenticated user's owned workspace."""
+    workspace = get_owned_workspace_for_user(user_id)
+    if not workspace:
+        return []
+
+    return _send_supabase_table_request(
+        "repositories",
+        "GET",
+        query_params={
+            "select": (
+                "id,github_repo_id,full_name,owner,name,private,default_branch,"
+                "html_url,monitoring_enabled,created_at,updated_at"
+            ),
+            "workspace_id": f"eq.{workspace['id']}",
+            "order": "full_name.asc",
+        },
+    )
+
+
+def update_repository_monitoring(
+    user_id: str, repository_id: str, monitoring_enabled: bool
+) -> dict | None:
+    """Update monitoring_enabled for a repository in the user's workspace."""
+    workspace = get_owned_workspace_for_user(user_id)
+    if not workspace:
+        return None
+
+    existing = _send_supabase_table_request(
+        "repositories",
+        "GET",
+        query_params={
+            "select": "id",
+            "id": f"eq.{repository_id}",
+            "workspace_id": f"eq.{workspace['id']}",
+            "limit": 1,
+        },
+    )
+    if not existing:
+        return None
+
+    rows = _send_supabase_table_request(
+        "repositories",
+        "PATCH",
+        query_params={
+            "id": f"eq.{repository_id}",
+            "workspace_id": f"eq.{workspace['id']}",
+            "select": (
+                "id,github_repo_id,full_name,owner,name,private,default_branch,"
+                "html_url,monitoring_enabled,created_at,updated_at"
+            ),
+        },
+        payload={"monitoring_enabled": monitoring_enabled},
+    )
+    if not rows:
+        return None
+    return rows[0]

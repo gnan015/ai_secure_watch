@@ -1,6 +1,6 @@
 import React from "react";
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import DetectionTable from "../components/DetectionTable.jsx";
 import RecentDetections from "../components/RecentDetections.jsx";
@@ -128,6 +128,9 @@ function Dashboard() {
           <p>Real-time GitHub credential leak monitoring dashboard</p>
         </div>
         <div className="header-actions">
+          <Link className="refresh-button" to="/repositories">
+            Repositories
+          </Link>
           <button className="refresh-button" onClick={loadDashboardData}>
             Refresh
           </button>

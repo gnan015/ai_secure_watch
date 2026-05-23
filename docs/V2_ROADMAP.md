@@ -84,6 +84,8 @@ Status: prepared in this repository.
 ## Phase 5: Repository Management
 
 - Status: next.
+- Completed Phase 5.1: Protected backend repository APIs added to list workspace repositories and update `monitoring_enabled` with workspace ownership checks.
+- Completed Phase 5.2: Protected dashboard repositories page added with repository list and monitoring toggle using Phase 5.1 APIs.
 - Add dashboard pages for connected GitHub account/installations.
 - List installed repositories.
 - Allow users to enable or disable monitoring per repository.
