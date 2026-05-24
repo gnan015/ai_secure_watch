@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 
-from app.dependencies.auth import CurrentUser
+from app.dependencies.auth import CurrentUser, get_current_user
 from app.routes.v2_dashboard import v2_detections, v2_scan_events
 from app.services.database_service import (
     get_v2_dashboard_overview,
@@ -31,6 +31,7 @@ class V2DashboardApiServiceTests(unittest.TestCase):
                 return [
                     {"id": "det-1", "status": "open", "severity": "critical"},
                     {"id": "det-2", "status": "resolved", "severity": "high"},
+                    {"id": "det-3", "status": "open", "severity": "medium"},
                 ]
             return []
 
@@ -50,8 +51,87 @@ class V2DashboardApiServiceTests(unittest.TestCase):
         self.assertEqual(overview["monitored_repositories"], 1)
         self.assertEqual(overview["completed_scan_events"], 1)
         self.assertEqual(overview["failed_scan_events"], 1)
+        self.assertEqual(overview["total_detections"], 3)
+        self.assertEqual(overview["open_detections"], 2)
         self.assertEqual(overview["critical_detections"], 1)
         self.assertEqual(overview["high_detections"], 1)
+        self.assertEqual(overview["medium_detections"], 1)
+        self.assertEqual(overview["resolved_detections"], 1)
+
+    def test_overview_user_with_no_workspace_gets_zero_counts(self):
+        with patch(
+            "app.services.database_service.get_owned_workspace_for_user",
+            return_value=None,
+        ):
+            overview = get_v2_dashboard_overview("user-without-workspace")
+
+        self.assertEqual(overview["total_detections"], 0)
+        self.assertEqual(overview["open_detections"], 0)
+        self.assertEqual(overview["critical_detections"], 0)
+        self.assertEqual(overview["high_detections"], 0)
+        self.assertEqual(overview["medium_detections"], 0)
+        self.assertEqual(overview["resolved_detections"], 0)
+
+    def test_overview_uses_v2_detections_not_v1_detections_table(self):
+        requested_tables = []
+
+        def fake_table_request(table_name, method, query_params=None, payload=None, **_):
+            requested_tables.append(table_name)
+            if table_name == "detections":
+                raise AssertionError("V2 overview must not query V1 detections")
+            if table_name == "v2_detections":
+                self.assertEqual(query_params["workspace_id"], "eq.workspace-1")
+                return [{"id": "det-1", "status": "open", "severity": "high"}]
+            return []
+
+        with (
+            patch(
+                "app.services.database_service.get_owned_workspace_for_user",
+                return_value={"id": "workspace-1"},
+            ),
+            patch(
+                "app.services.database_service._send_supabase_table_request",
+                side_effect=fake_table_request,
+            ),
+        ):
+            overview = get_v2_dashboard_overview("user-1")
+
+        self.assertIn("v2_detections", requested_tables)
+        self.assertNotIn("detections", requested_tables)
+        self.assertEqual(overview["total_detections"], 1)
+        self.assertEqual(overview["high_detections"], 1)
+
+    def test_overview_returns_safe_numeric_counts_only(self):
+        with (
+            patch(
+                "app.services.database_service.get_owned_workspace_for_user",
+                return_value={"id": "workspace-1"},
+            ),
+            patch(
+                "app.services.database_service._send_supabase_table_request",
+                return_value=[
+                    {
+                        "id": "det-1",
+                        "status": "open",
+                        "severity": "high",
+                        "raw_value": "sk_live_raw",
+                        "raw_secret": "sk_live_raw",
+                        "secret_value": "sk_live_raw",
+                    }
+                ],
+            ),
+        ):
+            overview = get_v2_dashboard_overview("user-1")
+
+        self.assertNotIn("raw_value", overview)
+        self.assertNotIn("raw_secret", overview)
+        self.assertNotIn("secret_value", overview)
+
+    def test_no_auth_overview_returns_401(self):
+        with self.assertRaises(HTTPException) as context:
+            get_current_user(credentials=None)
+
+        self.assertEqual(context.exception.status_code, 401)
 
     def test_list_v2_detections_returns_safe_fields_only(self):
         with (

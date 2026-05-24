@@ -716,6 +716,8 @@ def get_v2_dashboard_overview(user_id: str) -> dict:
             "open_detections": 0,
             "critical_detections": 0,
             "high_detections": 0,
+            "medium_detections": 0,
+            "resolved_detections": 0,
             "latest_scan_at": None,
         }
 
@@ -770,6 +772,12 @@ def get_v2_dashboard_overview(user_id: str) -> dict:
         ),
         "high_detections": sum(
             1 for detection in detections if detection.get("severity") == "high"
+        ),
+        "medium_detections": sum(
+            1 for detection in detections if detection.get("severity") == "medium"
+        ),
+        "resolved_detections": sum(
+            1 for detection in detections if detection.get("status") == "resolved"
         ),
         "latest_scan_at": latest_scan.get("started_at")
         or latest_scan.get("created_at")

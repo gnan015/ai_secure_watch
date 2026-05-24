@@ -1,1 +1,0 @@
-GITHUB_TOKEN="ghp_publictest1234567890abcdefghijklmnopqrstuvwxyz" 
