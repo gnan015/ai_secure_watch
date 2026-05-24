@@ -6,6 +6,7 @@ import unittest
 from unittest.mock import patch
 
 from fastapi import BackgroundTasks
+from fastapi import HTTPException
 
 from app.config import settings
 from app.routes.webhook import github_webhook
@@ -69,6 +70,29 @@ class WebhookV2RoutingTests(unittest.TestCase):
             "head_commit": {"id": "abc123"},
             "commits": [{"id": "abc123", "message": "test"}],
         }
+
+    def test_invalid_signature_returns_401_without_processing(self):
+        payload = self._push_payload()
+        body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        request = FakeRequest(
+            body=body,
+            payload=payload,
+            headers={
+                "Content-Type": "application/json",
+                "X-GitHub-Event": "push",
+                "X-GitHub-Delivery": "delivery-123",
+                "X-Hub-Signature-256": "sha256=wrong",
+            },
+        )
+
+        with self.assertRaises(HTTPException) as context:
+            asyncio.run(github_webhook(request, BackgroundTasks()))
+
+        self.assertEqual(context.exception.status_code, 401)
+        self.assertEqual(
+            context.exception.detail,
+            "Invalid GitHub webhook signature",
+        )
 
     def test_v2_monitored_repository_creates_scan_event_without_queueing_v1_processor(self):
         with (

@@ -12,11 +12,24 @@ from app.routes.webhook import router as webhook_router
 
 app = FastAPI(title=settings.app_name)
 
+
+def _cors_origins() -> list[str]:
+    origins = [settings.frontend_url]
+    if settings.app_env != "production":
+        origins.extend(
+            [
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+            ]
+        )
+    return sorted(set(origins))
+
+
 # Allow the React dashboard to call this API. In production, set FRONTEND_URL
 # to the deployed Vercel dashboard URL.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url],
+    allow_origins=_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -13,9 +13,22 @@ from app.services.database_service import (
 
 router = APIRouter()
 
+SCAN_EVENT_STATUSES = {"pending", "running", "completed", "failed", "skipped"}
+DETECTION_STATUSES = {"open", "ignored", "resolved", "false_positive"}
+DETECTION_SEVERITIES = {"low", "medium", "high", "critical"}
+
 
 class V2DetectionStatusUpdate(BaseModel):
     status: str
+
+
+def _validate_optional_filter(value: str | None, allowed: set[str], label: str) -> str | None:
+    if value is None:
+        return None
+    normalized = value.lower()
+    if normalized not in allowed:
+        raise HTTPException(status_code=400, detail=f"Invalid {label}")
+    return normalized
 
 
 @router.get("/v2/dashboard/overview")
@@ -34,6 +47,7 @@ def v2_scan_events(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Return recent V2 scan events scoped to the authenticated user's workspace."""
+    status = _validate_optional_filter(status, SCAN_EVENT_STATUSES, "scan event status")
     try:
         return list_v2_scan_events(
             user_id=current_user.id,
@@ -53,6 +67,8 @@ def v2_detections(
     current_user: CurrentUser = Depends(get_current_user),
 ):
     """Return safe V2 detections scoped to the authenticated user's workspace."""
+    status = _validate_optional_filter(status, DETECTION_STATUSES, "detection status")
+    severity = _validate_optional_filter(severity, DETECTION_SEVERITIES, "severity")
     try:
         return list_v2_detections(
             user_id=current_user.id,

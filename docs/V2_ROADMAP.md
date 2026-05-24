@@ -124,7 +124,7 @@ Status: prepared in this repository.
 - Completed Phase 8.1: Protected backend V2 dashboard APIs added for workspace-scoped overview, scan events, detections, and detection status updates. Responses return masked detection values only and leave V1 dashboard APIs unchanged.
 - Completed Phase 8.2: Dashboard V2 UI pages added for overview cards, scan events, detections, and detection status updates using auth-protected workspace-scoped APIs. Raw secrets are not requested or displayed.
 - Completed Phase 8.3: Final Phase 8 verification and documentation cleanup. Build/tests pass, V2 routes and APIs are documented, raw secret display remains blocked, and V1 behavior remains unchanged.
-- Pending manual follow-up: live fake-secret webhook scan data verification after Render deployment and GitHub webhook redelivery. Do not mark live V2 ingestion verified until `scan_events` and `v2_detections` rows are observed from a real GitHub App push.
+- Live V2 ingestion verified: real GitHub App pushes create `scan_events`, real detected fake secrets create `v2_detections`, Discord alerts are sent, and dashboard pages can show detections.
 - Add authenticated app layout and navigation.
 - Add pages for overview, detections, repositories, integrations, alert settings, and account settings.
 - Scope all dashboard data to the logged-in user.
@@ -133,7 +133,10 @@ Status: prepared in this repository.
 
 ## Phase 9: Public Readiness
 
-- Status: next.
+- Status: completed.
+- Completed Phase 9.1: Production readiness and deployment audit documentation added. Backend/dashboard environment examples and dependency manifests were reviewed, deployment checklists were documented, and live V2 ingestion verification was recorded.
+- Completed Phase 9.2: Safe structured logging, webhook error hardening, V2 dashboard filter validation, and production/development CORS review completed. Raw secrets remain excluded from logs, storage, API responses, and dashboard UI.
+- Completed Phase 9.3: Final Phase 9 testing and documentation cleanup. Confirmed production readiness checklists, safe logging rules, public health route, signature-protected webhook route, auth-protected V2 APIs, live V2 ingestion verification, and unchanged V1 fallback behavior.
 - Add error reporting and structured logs.
 - Add rate-limit handling for GitHub API calls.
 - Add audit/event logs for installations, repository changes, and alert delivery.
@@ -143,8 +146,32 @@ Status: prepared in this repository.
 
 ## Phase 10: Launch Hardening
 
+- Status: completed.
+- Completed Phase 10.1: Launch safety audit and negative access tests added. Mocked tests verify workspace scoping for repositories, Discord webhooks, V2 detections, scan events, and GitHub installation sync. Sensitive leak checks cover service role keys, JWT secrets, GitHub App private keys, installation tokens, Discord webhook URLs/ciphertext, raw secret values, and Authorization headers.
+- Completed Phase 10.2: Abuse prevention and operational checks added. Repository sync is capped, Discord test requests reject disabled webhooks before sending, V2 dashboard limits and invalid filters are covered by endpoint tests, duplicate delivery idempotency remains covered, and launch operations checklists are documented.
+- Completed Phase 10.3: Final launch checklist and docs completed. Backend, dashboard, Supabase, GitHub App, Discord, security, manual smoke test, rollback, incident response, and known limitation checklists are documented.
 - Validate RLS policies with negative tests.
 - Confirm no raw secret values are stored or sent to third parties.
 - Add backup/export process for Supabase.
 - Add abuse prevention for public signup.
 - Add monitoring for webhook failures and alert delivery failures.
+
+## AI SecureWatch V2 MVP
+
+- Status: complete.
+- V2 MVP includes Supabase Auth, multi-user workspace schema, GitHub App installation and repository sync, repository monitoring controls, encrypted per-workspace Discord webhook management, V2 GitHub push ingestion, masked-only V2 detection storage, workspace-scoped dashboard APIs, dashboard V2 views, production readiness docs, safe logging, negative access tests, abuse/ops checks, and final launch checklist.
+- Raw secrets are not stored, logged, displayed, or sent to Discord by the V2 flow.
+- V1 fallback remains available and unchanged for unknown V2 repositories while V1 remains enabled.
+
+## Post-MVP Improvements
+
+- Billing/subscriptions
+- Advanced rate limiting
+- Organization/team management UI
+- Better onboarding
+- PR comments
+- Email alerts
+- Advanced analytics
+- Better visual dashboard polish
+- Background job queue/worker if needed
+- More scanner rules

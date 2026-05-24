@@ -1,6 +1,10 @@
 import unittest
 from unittest.mock import patch
 
+from fastapi import HTTPException
+
+from app.dependencies.auth import CurrentUser
+from app.routes.v2_dashboard import v2_detections, v2_scan_events
 from app.services.database_service import (
     get_v2_dashboard_overview,
     list_v2_detections,
@@ -93,6 +97,24 @@ class V2DashboardApiServiceTests(unittest.TestCase):
 
         self.assertIsNone(updated)
         table_request.assert_called_once()
+
+    def test_invalid_scan_event_status_filter_returns_400(self):
+        with self.assertRaises(HTTPException) as context:
+            v2_scan_events(
+                status="not-a-status",
+                current_user=CurrentUser(id="user-1"),
+            )
+
+        self.assertEqual(context.exception.status_code, 400)
+
+    def test_invalid_detection_severity_filter_returns_400(self):
+        with self.assertRaises(HTTPException) as context:
+            v2_detections(
+                severity="urgent",
+                current_user=CurrentUser(id="user-1"),
+            )
+
+        self.assertEqual(context.exception.status_code, 400)
 
 
 if __name__ == "__main__":

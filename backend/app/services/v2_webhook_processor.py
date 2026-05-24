@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 
 from app.services.ai_service import analyze_secret_with_ai
@@ -10,6 +11,7 @@ from app.services.database_service import (
 from app.services.github_app_service import get_installation_access_token
 from app.services.github_service import extract_added_lines, fetch_commit_diff_with_token
 from app.services.scanner_service import scan_added_lines
+from app.utils.safe_logging import log_safe
 
 
 SEVERITY_MAP = {
@@ -29,6 +31,12 @@ def _v2_severity(ai_analysis: dict) -> str:
     return SEVERITY_MAP.get(risk_level, "medium")
 
 
+def _safe_error_message(exc: Exception) -> str:
+    if isinstance(exc, DatabaseError):
+        return f"{type(exc).__name__}: {str(exc)[:200]}"
+    return type(exc).__name__
+
+
 def process_v2_github_push(
     scan_event: dict, parsed_data: dict, v2_repository: dict
 ) -> None:
@@ -43,6 +51,15 @@ def process_v2_github_push(
     print(f"Commit SHAs: {commit_shas}")
 
     try:
+        log_safe(
+            logging.INFO,
+            "v2_scan_started",
+            scan_event_id=scan_event_id,
+            repo_full_name=repo_full_name,
+            workspace_id=v2_repository.get("workspace_id"),
+            repository_id=v2_repository.get("repository_id"),
+            status="running",
+        )
         access_token_payload = get_installation_access_token(
             int(v2_repository["github_installation_id"])
         )
@@ -95,6 +112,16 @@ def process_v2_github_push(
                     }
                 )
 
+        log_safe(
+            logging.INFO,
+            "v2_scan_detections_found",
+            scan_event_id=scan_event_id,
+            repo_full_name=repo_full_name,
+            workspace_id=v2_repository.get("workspace_id"),
+            repository_id=v2_repository.get("repository_id"),
+            detections_found=detections_found,
+            detections_to_store=len(detections_to_store),
+        )
         print(f"V2 detections_found count: {detections_found}")
         print(f"V2 detections eligible for storage: {len(detections_to_store)}")
         stored_detections = create_v2_detections_bulk(detections_to_store)
@@ -109,9 +136,31 @@ def process_v2_github_push(
 
         print("V2 GitHub App push processing completed")
         print(f"V2 detections_stored count: {len(stored_detections)}")
+        log_safe(
+            logging.INFO,
+            "v2_scan_completed",
+            scan_event_id=scan_event_id,
+            repo_full_name=repo_full_name,
+            workspace_id=v2_repository.get("workspace_id"),
+            repository_id=v2_repository.get("repository_id"),
+            detections_found=detections_found,
+            detections_stored=len(stored_detections),
+            status="completed",
+        )
     except Exception as exc:
-        error_message = f"{type(exc).__name__}: {exc}"
+        error_message = _safe_error_message(exc)
         print(f"V2 GitHub App push processing failed: {error_message}")
+        log_safe(
+            logging.ERROR,
+            "v2_scan_failed",
+            scan_event_id=scan_event_id,
+            repo_full_name=repo_full_name,
+            workspace_id=v2_repository.get("workspace_id"),
+            repository_id=v2_repository.get("repository_id"),
+            error_type=type(exc).__name__,
+            error_message=error_message,
+            status="failed",
+        )
         update_scan_event_status(
             scan_event_id=scan_event_id,
             status="failed",

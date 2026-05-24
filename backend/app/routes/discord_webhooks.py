@@ -135,6 +135,10 @@ def test_discord_webhook(
 
     if not webhook:
         raise HTTPException(status_code=404, detail="Discord webhook not found")
+    if not webhook.get("enabled"):
+        raise HTTPException(status_code=400, detail="Discord webhook is disabled")
+    if not webhook.get("webhook_url_ciphertext"):
+        raise HTTPException(status_code=500, detail="Discord webhook is not configured")
 
     try:
         webhook_url = decrypt_webhook_url(webhook["webhook_url_ciphertext"])

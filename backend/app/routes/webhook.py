@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
@@ -12,6 +13,7 @@ from app.services.database_service import (
 from app.services.v2_webhook_processor import process_v2_github_push
 from app.services.webhook_processor import process_github_push
 from app.utils.github_payload import parse_push_payload
+from app.utils.safe_logging import log_safe
 from app.utils.signature import verify_github_signature
 
 router = APIRouter()
@@ -41,6 +43,12 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
     )
 
     if not is_valid_signature:
+        log_safe(
+            logging.WARNING,
+            "github_webhook_invalid_signature",
+            event_type=github_event,
+            delivery_id=github_delivery,
+        )
         raise HTTPException(
             status_code=401,
             detail="Invalid GitHub webhook signature",
@@ -68,7 +76,7 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
     }
 
     if github_event != "push":
-        print(f"GitHub event ignored: {webhook_context}")
+        log_safe(logging.INFO, "github_webhook_event_ignored", **webhook_context)
         return {
             "status": "ignored",
             "reason": "Only push events are supported for now",
@@ -82,9 +90,15 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
                 github_repo_id=int(github_repo_id),
             )
         except (TypeError, ValueError):
+            log_safe(logging.WARNING, "github_webhook_invalid_v2_ids", **webhook_context)
             v2_repository = None
         except DatabaseError as exc:
-            print(f"V2 webhook repository lookup failed safely: {type(exc).__name__}")
+            log_safe(
+                logging.ERROR,
+                "github_webhook_v2_lookup_failed",
+                error_type=type(exc).__name__,
+                **webhook_context,
+            )
             v2_repository = None
 
         if v2_repository:
@@ -94,8 +108,13 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
             ]
 
             if not v2_repository["monitoring_enabled"]:
-                print(f"V2 GitHub App push skipped: {webhook_context}")
-                print(f"V2 repository context: {v2_repository}")
+                log_safe(
+                    logging.INFO,
+                    "github_webhook_v2_monitoring_disabled",
+                    workspace_id=v2_repository.get("workspace_id"),
+                    repository_id=v2_repository.get("repository_id"),
+                    **webhook_context,
+                )
                 return {
                     "status": "skipped",
                     "reason": "Repository monitoring is disabled",
@@ -111,8 +130,15 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
                 "running",
                 "completed",
             }:
-                print(f"V2 duplicate GitHub App delivery skipped: {webhook_context}")
-                print(f"V2 repository context: {v2_repository}")
+                log_safe(
+                    logging.INFO,
+                    "github_webhook_v2_duplicate_delivery",
+                    workspace_id=v2_repository.get("workspace_id"),
+                    repository_id=v2_repository.get("repository_id"),
+                    scan_event_id=existing_scan_event.get("id"),
+                    status=existing_scan_event.get("status"),
+                    **webhook_context,
+                )
                 return {
                     "status": "duplicate",
                     "message": "V2 scan event already exists for this delivery",
@@ -142,8 +168,15 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
                 v2_repository,
             )
 
-            print(f"V2 GitHub App push scan queued: {webhook_context}")
-            print(f"V2 repository context: {v2_repository}")
+            log_safe(
+                logging.INFO,
+                "github_webhook_v2_scan_queued",
+                workspace_id=v2_repository.get("workspace_id"),
+                repository_id=v2_repository.get("repository_id"),
+                scan_event_id=scan_event.get("id"),
+                status=scan_event.get("status"),
+                **webhook_context,
+            )
             return {
                 "status": "queued",
                 "message": "V2 scan event queued",
@@ -151,6 +184,8 @@ async def github_webhook(request: Request, background_tasks: BackgroundTasks):
                 "scan_event_status": scan_event.get("status"),
                 **webhook_context,
             }
+
+        log_safe(logging.WARNING, "github_webhook_v2_repository_not_found", **webhook_context)
 
     push_data = parse_push_payload(payload)
 

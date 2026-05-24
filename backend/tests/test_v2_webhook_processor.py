@@ -125,7 +125,7 @@ class V2WebhookProcessorTests(unittest.TestCase):
         update_status.assert_called_with(
             scan_event_id="scan-event-1",
             status="failed",
-            error_message="ValueError: missing token",
+            error_message="ValueError",
             completed_at=ANY,
         )
 
