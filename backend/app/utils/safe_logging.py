@@ -26,6 +26,9 @@ SAFE_LOG_FIELDS = {
     "detections_found",
     "detections_stored",
     "detections_to_store",
+    "discord_webhook_id",
+    "alerts_sent",
+    "alerts_failed",
     "error_type",
     "error_message",
 }

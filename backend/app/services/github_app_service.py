@@ -10,9 +10,6 @@ class GitHubAppServiceError(Exception):
     """Raised when a GitHub App request or configuration fails."""
 
 
-MAX_INSTALLATION_REPOSITORIES = 500
-
-
 def _require_github_app_settings() -> None:
     if not settings.github_app_id:
         raise GitHubAppServiceError("GITHUB_APP_ID is not configured")
@@ -128,8 +125,6 @@ def list_installation_repositories(installation_id: int) -> list[dict]:
         payload = response.json()
         page_repositories = payload.get("repositories") or []
         repositories.extend(page_repositories)
-        if len(repositories) >= MAX_INSTALLATION_REPOSITORIES:
-            return repositories[:MAX_INSTALLATION_REPOSITORIES]
 
         if len(page_repositories) < per_page:
             break

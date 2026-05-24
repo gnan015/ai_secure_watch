@@ -5,8 +5,15 @@ from app.services.ai_service import analyze_secret_with_ai
 from app.services.database_service import (
     DatabaseError,
     create_v2_detections_bulk,
+    list_enabled_discord_webhooks_for_workspace,
     should_store_detection,
+    update_discord_webhook_alert_status,
     update_scan_event_status,
+)
+from app.services.discord_webhook_service import (
+    DiscordWebhookServiceError,
+    decrypt_webhook_url,
+    send_detection_alert,
 )
 from app.services.github_app_service import get_installation_access_token
 from app.services.github_service import extract_added_lines, fetch_commit_diff_with_token
@@ -35,6 +42,89 @@ def _safe_error_message(exc: Exception) -> str:
     if isinstance(exc, DatabaseError):
         return f"{type(exc).__name__}: {str(exc)[:200]}"
     return type(exc).__name__
+
+
+def _stored_alert_detections(
+    stored_detections: list[dict], detections_to_store: list[dict]
+) -> list[dict]:
+    alert_detections: list[dict] = []
+    for index, detection in enumerate(detections_to_store):
+        stored = stored_detections[index] if index < len(stored_detections) else {}
+        alert_detections.append({**detection, **stored})
+    return alert_detections
+
+
+def _send_v2_discord_alerts(workspace_id: str, detections: list[dict]) -> None:
+    if not detections:
+        return
+
+    try:
+        webhooks = list_enabled_discord_webhooks_for_workspace(workspace_id)
+    except DatabaseError as exc:
+        log_safe(
+            logging.ERROR,
+            "v2_discord_webhook_lookup_failed",
+            workspace_id=workspace_id,
+            error_type=type(exc).__name__,
+            error_message=_safe_error_message(exc),
+        )
+        return
+
+    if not webhooks:
+        log_safe(
+            logging.INFO,
+            "v2_discord_no_enabled_webhook",
+            workspace_id=workspace_id,
+            detections_stored=len(detections),
+        )
+        return
+
+    alerts_sent = 0
+    alerts_failed = 0
+    for webhook in webhooks:
+        webhook_id = webhook.get("id")
+        try:
+            webhook_url = decrypt_webhook_url(webhook["webhook_url_ciphertext"])
+            for detection in detections:
+                send_detection_alert(webhook_url, detection)
+                alerts_sent += 1
+            try:
+                update_discord_webhook_alert_status(
+                    workspace_id=workspace_id,
+                    webhook_id=webhook_id,
+                    last_error=None,
+                )
+            except DatabaseError:
+                pass
+        except (DiscordWebhookServiceError, KeyError) as exc:
+            alerts_failed += len(detections)
+            error_message = _safe_error_message(exc)
+            log_safe(
+                logging.ERROR,
+                "v2_discord_alert_failed",
+                workspace_id=workspace_id,
+                discord_webhook_id=webhook_id,
+                alerts_failed=len(detections),
+                error_type=type(exc).__name__,
+                error_message=error_message,
+            )
+            if webhook_id:
+                try:
+                    update_discord_webhook_alert_status(
+                        workspace_id=workspace_id,
+                        webhook_id=webhook_id,
+                        last_error=error_message,
+                    )
+                except DatabaseError:
+                    pass
+
+    log_safe(
+        logging.INFO,
+        "v2_discord_alerts_finished",
+        workspace_id=workspace_id,
+        alerts_sent=alerts_sent,
+        alerts_failed=alerts_failed,
+    )
 
 
 def process_v2_github_push(
@@ -127,6 +217,11 @@ def process_v2_github_push(
         stored_detections = create_v2_detections_bulk(detections_to_store)
         if len(stored_detections) != len(detections_to_store):
             raise DatabaseError("V2 detection storage count mismatch")
+
+        _send_v2_discord_alerts(
+            workspace_id=v2_repository["workspace_id"],
+            detections=_stored_alert_detections(stored_detections, detections_to_store),
+        )
 
         update_scan_event_status(
             scan_event_id=scan_event_id,

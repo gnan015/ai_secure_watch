@@ -63,7 +63,7 @@ function Login() {
       <section className="auth-panel" aria-labelledby="login-title">
         <div className="auth-heading">
           <h1 id="login-title">AI SecureWatch</h1>
-          <p>Secure your repositories from leaked secrets.</p>
+          <p>Sign in to monitor GitHub repositories for leaked secrets.</p>
         </div>
 
         {error && <div className="alert">{error}</div>}
@@ -77,10 +77,6 @@ function Login() {
           >
             {githubLoading ? "Redirecting to GitHub..." : "Continue with GitHub"}
           </button>
-          <p>
-            Use GitHub to sign in. Repository access will be connected later
-            through the AI SecureWatch GitHub App.
-          </p>
         </div>
 
         <div className="auth-divider">

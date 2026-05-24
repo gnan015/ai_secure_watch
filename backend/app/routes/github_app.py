@@ -5,6 +5,7 @@ from app.dependencies.auth import CurrentUser, get_current_user
 from app.services.database_service import (
     DatabaseError,
     get_github_installation_for_workspace,
+    get_github_installations_for_user_workspace,
     get_owned_workspace_for_user,
     upsert_repositories_for_installation,
     upsert_github_installation,
@@ -20,6 +21,15 @@ router = APIRouter()
 
 class InstallationSaveRequest(BaseModel):
     installation_id: int = Field(..., gt=0)
+
+
+@router.get("/github/installations")
+def list_github_installations(current_user: CurrentUser = Depends(get_current_user)):
+    """Return safe GitHub App installations for the authenticated workspace."""
+    try:
+        return get_github_installations_for_user_workspace(current_user.id)
+    except DatabaseError:
+        raise HTTPException(status_code=500, detail="Failed to load installations")
 
 
 @router.post("/github/installations")

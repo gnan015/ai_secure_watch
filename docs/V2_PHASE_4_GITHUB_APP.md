@@ -27,8 +27,9 @@ Phase 4 introduces GitHub App-based repository access for workspace-scoped monit
 `https://YOUR_BACKEND_DOMAIN/webhook/github`
 - Webhook secret:
 Store in backend environment as `GITHUB_APP_WEBHOOK_SECRET`
-- Callback URL (placeholder for later backend flow):
-`https://YOUR_BACKEND_DOMAIN/auth/github-app/callback`
+- Setup URL:
+  - Local: `http://localhost:5173/github/setup`
+  - Production: `https://your-frontend-domain.com/github/setup`
 
 ### Backend Environment Variables (Phase 4.1 Prep)
 Add these placeholders to backend environment configuration (no real secrets in repo):
@@ -84,11 +85,13 @@ Phase 4.2 adds backend support for GitHub App authentication and saving installa
 Phase 4.3 adds backend repository sync for a saved GitHub App installation.
 
 ### Implemented In Phase 4.3
+- Protected API added: `GET /api/github/installations`.
 - Protected API added: `POST /api/github/installations/{installation_id}/sync-repositories`.
 - Backend can fetch repositories accessible to the selected installation.
 - Repository records are upserted into Supabase `public.repositories`.
 - Repeated sync avoids duplication through upsert keyed by `github_repo_id`.
 - `monitoring_enabled` remains defaulted to `true` from schema behavior.
+- Sync returns only repositories available to the GitHub App installation. If the app is installed on all repositories, all accessible repositories can sync. If installed on selected repositories, only selected repositories can sync.
 
 ### Scope Notes
 - No repository deletion/pruning was added in this phase; sync is upsert-only.
@@ -107,6 +110,8 @@ Phase 4 is verified complete for GitHub App integration readiness.
 - Installation metadata fetch from GitHub.
 - Protected installation save endpoint:
 `POST /api/github/installations`
+- Protected installation list endpoint:
+`GET /api/github/installations`
 - Protected repository sync endpoint:
 `POST /api/github/installations/{installation_id}/sync-repositories`
 - Repository upsert flow into `public.repositories` with idempotent sync behavior.
@@ -121,9 +126,11 @@ Phase 4 is verified complete for GitHub App integration readiness.
 - `installation_id`: `134901546`
 - Repository synced: `gnan015/ai-securewatch-test-repo`
 
+### Dashboard Follow-Up
+- The dashboard now includes `/github/setup`, which reads GitHub's `installation_id`, saves the installation for the authenticated user's workspace, syncs available repositories, and redirects to `/repositories`.
+- Users can update GitHub App repository access in GitHub and click Sync repositories again.
+
 ### Intentionally Not Implemented In Phase 4
-- GitHub App installation callback route/web UX flow.
-- Repository dashboard UI and repository settings screens.
 - Repository delete/prune behavior during sync.
 - V1 webhook/scanner pipeline changes.
 - V1 detections migration.

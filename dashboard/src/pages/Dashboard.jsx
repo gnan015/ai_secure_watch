@@ -1,14 +1,13 @@
 import React from "react";
 import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
 
+import AppShell from "../components/AppShell.jsx";
 import DetectionTable from "../components/DetectionTable.jsx";
 import RecentDetections from "../components/RecentDetections.jsx";
 import SecretTypeChart from "../components/SecretTypeChart.jsx";
 import SeverityChart from "../components/SeverityChart.jsx";
 import SummaryCards from "../components/SummaryCards.jsx";
 import TrendChart from "../components/TrendChart.jsx";
-import { useAuth } from "../context/AuthContext.jsx";
 import {
   fetchDetections,
   fetchRecentDetections,
@@ -27,8 +26,6 @@ const initialFilters = {
 };
 
 function Dashboard() {
-  const navigate = useNavigate();
-  const { signOut } = useAuth();
   const [v2Overview, setV2Overview] = useState(null);
   const [summary, setSummary] = useState(null);
   const [recentDetections, setRecentDetections] = useState([]);
@@ -40,7 +37,6 @@ function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updatingId, setUpdatingId] = useState("");
-  const [signingOut, setSigningOut] = useState(false);
 
   const loadDashboardData = useCallback(async () => {
     setLoading(true);
@@ -110,54 +106,16 @@ function Dashboard() {
     }
   }
 
-  async function handleSignOut() {
-    setSigningOut(true);
-    setError("");
-
-    const { error: signOutError } = await signOut();
-
-    if (signOutError) {
-      setError(signOutError.message || "Sign out failed. Please try again.");
-      setSigningOut(false);
-      return;
-    }
-
-    navigate("/login", { replace: true });
-  }
-
   return (
-    <main className="dashboard">
-      <header className="hero">
-        <div>
-          <h1>AI SecureWatch</h1>
-          <p>Real-time GitHub credential leak monitoring dashboard</p>
-        </div>
-        <div className="header-actions">
-          <Link className="refresh-button" to="/repositories">
-            Repositories
-          </Link>
-          <Link className="refresh-button" to="/integrations/discord">
-            Discord
-          </Link>
-          <Link className="refresh-button" to="/scan-events">
-            Scan Events
-          </Link>
-          <Link className="refresh-button" to="/detections">
-            Detections
-          </Link>
-          <button className="refresh-button" onClick={loadDashboardData}>
+    <AppShell
+      title="Security overview"
+      description="Real-time GitHub App monitoring for workspace secret exposure."
+      actions={
+        <button className="button button-secondary" onClick={loadDashboardData}>
             Refresh
           </button>
-          <button
-            className="sign-out-button"
-            disabled={signingOut}
-            onClick={handleSignOut}
-            type="button"
-          >
-            {signingOut ? "Signing out..." : "Sign out"}
-          </button>
-        </div>
-      </header>
+      }
+    >
 
       {error && <div className="alert">{error}</div>}
 
@@ -226,7 +184,7 @@ function Dashboard() {
           />
         </>
       )}
-    </main>
+    </AppShell>
   );
 }
 

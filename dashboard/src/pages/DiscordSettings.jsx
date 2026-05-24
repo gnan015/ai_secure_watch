@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 
+import AppShell from "../components/AppShell.jsx";
 import {
   createDiscordWebhook,
   deleteDiscordWebhook,
@@ -167,60 +167,45 @@ function DiscordSettings() {
   }
 
   return (
-    <main className="dashboard">
-      <header className="hero">
-        <div>
-          <h1>Discord Alerts</h1>
-          <p>Manage workspace Discord webhook settings</p>
-        </div>
-        <div className="header-actions">
-          <Link className="refresh-button" to="/dashboard">
-            Dashboard
-          </Link>
-          <Link className="refresh-button" to="/repositories">
-            Repositories
-          </Link>
-          <Link className="refresh-button" to="/scan-events">
-            Scan Events
-          </Link>
-          <Link className="refresh-button" to="/detections">
-            Detections
-          </Link>
-          <button className="refresh-button" onClick={loadWebhooks}>
-            Refresh
-          </button>
-        </div>
-      </header>
-
+    <AppShell
+      title="Discord alerts"
+      description="Configure encrypted workspace Discord webhook alerting."
+      actions={
+        <button className="button button-secondary" onClick={loadWebhooks}>
+          Refresh
+        </button>
+      }
+    >
       {error && <div className="alert">{error}</div>}
-      {notice && <div className="loading-state">{notice}</div>}
+      {notice && <div className="notice">{notice}</div>}
 
-      <section className="panel">
+      <section className="panel form-panel">
         <div className="section-heading">
-          <h2>Add Discord Webhook</h2>
+          <h2>Add Discord webhook</h2>
+          <span className="muted">Stored encrypted, displayed masked</span>
         </div>
         <form className="auth-form" onSubmit={handleCreate}>
           <label>
             Name
             <input
+              maxLength={200}
+              onChange={(event) => setNameInput(event.target.value)}
               type="text"
               value={nameInput}
-              onChange={(event) => setNameInput(event.target.value)}
-              maxLength={200}
             />
           </label>
           <label>
             Webhook URL
             <input
-              type="url"
-              value={urlInput}
               onChange={(event) => setUrlInput(event.target.value)}
               placeholder="https://discord.com/api/webhooks/..."
               required
+              type="url"
+              value={urlInput}
             />
           </label>
-          <button className="auth-button" disabled={creating} type="submit">
-            {creating ? "Saving..." : "Save Webhook"}
+          <button className="button button-primary" disabled={creating} type="submit">
+            {creating ? "Saving..." : "Save webhook"}
           </button>
         </form>
       </section>
@@ -228,72 +213,92 @@ function DiscordSettings() {
       {loading ? (
         <div className="loading-state">Loading Discord webhooks...</div>
       ) : webhooks.length === 0 ? (
-        <div className="loading-state">
+        <div className="empty-state">
           No Discord webhooks found. Add one to enable workspace alert settings.
         </div>
       ) : (
         <section className="panel">
-          <table className="detection-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Webhook</th>
-                <th>Status</th>
-                <th>Last Tested</th>
-                <th>Last Error</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {webhooks.map((webhook) => {
-                const busy = actionBusyId === webhook.id;
-                return (
-                  <tr key={webhook.id}>
-                    <td>{webhook.name}</td>
-                    <td className="mono">••••{webhook.webhook_url_last4 || ""}</td>
-                    <td>{webhook.enabled ? "Enabled" : "Disabled"}</td>
-                    <td>{formatTimestamp(webhook.last_tested_at)}</td>
-                    <td>{webhook.last_error || "-"}</td>
-                    <td>
-                      <div className="header-actions">
-                        <button
-                          type="button"
-                          className="status-button"
-                          disabled={busy}
-                          onClick={() => handleToggle(webhook)}
+          <div className="section-heading">
+            <h2>Saved webhooks</h2>
+            <span className="muted">{webhooks.length} configured</span>
+          </div>
+          <div className="table-shell">
+            <table className="detection-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Webhook</th>
+                  <th>Status</th>
+                  <th>Last tested</th>
+                  <th>Last error</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {webhooks.map((webhook) => {
+                  const busy = actionBusyId === webhook.id;
+                  return (
+                    <tr key={webhook.id}>
+                      <td className="strong-cell">{webhook.name}</td>
+                      <td className="mono masked-value">
+                        ****{webhook.webhook_url_last4 || ""}
+                      </td>
+                      <td>
+                        <span
+                          className={
+                            webhook.enabled
+                              ? "badge badge-completed"
+                              : "badge badge-muted"
+                          }
                         >
-                          {busy && actionType === "toggle"
-                            ? "Updating..."
-                            : webhook.enabled
-                            ? "Disable"
-                            : "Enable"}
-                        </button>
-                        <button
-                          type="button"
-                          className="refresh-button"
-                          disabled={busy}
-                          onClick={() => handleTest(webhook)}
-                        >
-                          {busy && actionType === "test" ? "Testing..." : "Test"}
-                        </button>
-                        <button
-                          type="button"
-                          className="sign-out-button"
-                          disabled={busy}
-                          onClick={() => handleDelete(webhook)}
-                        >
-                          {busy && actionType === "delete" ? "Deleting..." : "Delete"}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                          {webhook.enabled ? "Enabled" : "Disabled"}
+                        </span>
+                      </td>
+                      <td>{formatTimestamp(webhook.last_tested_at)}</td>
+                      <td className={webhook.last_error ? "error-text" : ""}>
+                        {webhook.last_error || "-"}
+                      </td>
+                      <td>
+                        <div className="row-actions">
+                          <button
+                            className="button button-secondary compact-button"
+                            disabled={busy}
+                            onClick={() => handleToggle(webhook)}
+                            type="button"
+                          >
+                            {busy && actionType === "toggle"
+                              ? "Updating..."
+                              : webhook.enabled
+                              ? "Disable"
+                              : "Enable"}
+                          </button>
+                          <button
+                            className="button button-secondary compact-button"
+                            disabled={busy}
+                            onClick={() => handleTest(webhook)}
+                            type="button"
+                          >
+                            {busy && actionType === "test" ? "Testing..." : "Test"}
+                          </button>
+                          <button
+                            className="button button-danger compact-button"
+                            disabled={busy}
+                            onClick={() => handleDelete(webhook)}
+                            type="button"
+                          >
+                            {busy && actionType === "delete" ? "Deleting..." : "Delete"}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
-    </main>
+    </AppShell>
   );
 }
 

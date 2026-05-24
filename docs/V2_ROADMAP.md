@@ -148,7 +148,7 @@ Status: prepared in this repository.
 
 - Status: completed.
 - Completed Phase 10.1: Launch safety audit and negative access tests added. Mocked tests verify workspace scoping for repositories, Discord webhooks, V2 detections, scan events, and GitHub installation sync. Sensitive leak checks cover service role keys, JWT secrets, GitHub App private keys, installation tokens, Discord webhook URLs/ciphertext, raw secret values, and Authorization headers.
-- Completed Phase 10.2: Abuse prevention and operational checks added. Repository sync is capped, Discord test requests reject disabled webhooks before sending, V2 dashboard limits and invalid filters are covered by endpoint tests, duplicate delivery idempotency remains covered, and launch operations checklists are documented.
+- Completed Phase 10.2: Abuse prevention and operational checks added. Repository sync uses GitHub pagination, Discord test requests reject disabled webhooks before sending, V2 dashboard limits and invalid filters are covered by endpoint tests, duplicate delivery idempotency remains covered, and launch operations checklists are documented.
 - Completed Phase 10.3: Final launch checklist and docs completed. Backend, dashboard, Supabase, GitHub App, Discord, security, manual smoke test, rollback, incident response, and known limitation checklists are documented.
 - Validate RLS policies with negative tests.
 - Confirm no raw secret values are stored or sent to third parties.

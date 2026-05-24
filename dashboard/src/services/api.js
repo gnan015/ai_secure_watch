@@ -75,6 +75,25 @@ export async function updateDetectionStatus(detectionId, status) {
   return response.data;
 }
 
+export async function getGitHubInstallations() {
+  const response = await apiClient.get("/api/github/installations");
+  return response.data;
+}
+
+export async function saveGitHubInstallation(installationId) {
+  const response = await apiClient.post("/api/github/installations", {
+    installation_id: Number(installationId),
+  });
+  return response.data;
+}
+
+export async function syncGitHubInstallationRepositories(installationId) {
+  const response = await apiClient.post(
+    `/api/github/installations/${installationId}/sync-repositories`
+  );
+  return response.data;
+}
+
 export async function getRepositories() {
   const response = await apiClient.get("/api/repositories");
   return response.data;

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 
+import AppShell from "../components/AppShell.jsx";
 import {
   getV2Detections,
   updateV2DetectionStatus,
@@ -80,22 +80,15 @@ function Detections() {
   }
 
   return (
-    <main className="dashboard">
-      <header className="hero">
-        <div>
-          <h1>Detections</h1>
-          <p>Workspace-scoped V2 secret detections</p>
-        </div>
-        <div className="header-actions">
-          <Link className="refresh-button" to="/dashboard">Dashboard</Link>
-          <Link className="refresh-button" to="/scan-events">Scan Events</Link>
-          <Link className="refresh-button" to="/repositories">Repositories</Link>
-          <Link className="refresh-button" to="/integrations/discord">Discord</Link>
-          <button className="refresh-button" onClick={() => loadDetections()}>
-            Refresh
-          </button>
-        </div>
-      </header>
+    <AppShell
+      title="Detections"
+      description="Workspace-scoped V2 secret detections with masked values only."
+      actions={
+        <button className="button button-secondary" onClick={() => loadDetections()}>
+          Refresh
+        </button>
+      }
+    >
 
       {error && <div className="alert">{error}</div>}
 
@@ -132,9 +125,13 @@ function Detections() {
       {loading ? (
         <div className="loading-state">Loading V2 detections...</div>
       ) : detections.length === 0 ? (
-        <div className="loading-state">No V2 detections found.</div>
+        <div className="empty-state">No V2 detections found.</div>
       ) : (
         <section className="panel">
+          <div className="section-heading">
+            <h2>Detection inventory</h2>
+            <span className="muted">{detections.length} records</span>
+          </div>
           <div className="table-shell">
             <table className="detection-table">
               <thead>
@@ -155,7 +152,7 @@ function Detections() {
                   return (
                     <tr key={detection.id}>
                       <td>
-                        <div>{detection.repo_full_name || "-"}</div>
+                        <div className="strong-cell">{detection.repo_full_name || "-"}</div>
                         <div className="muted mono">{shortSha(detection.commit_sha)}</div>
                       </td>
                       <td>
@@ -165,7 +162,7 @@ function Detections() {
                         </div>
                       </td>
                       <td>
-                        <div>{detection.secret_type || "-"}</div>
+                        <div className="muted">{detection.secret_type || "-"}</div>
                         <div className="masked-value">{detection.masked_value || "-"}</div>
                       </td>
                       <td>
@@ -173,7 +170,11 @@ function Detections() {
                           {detection.severity || "unknown"}
                         </span>
                       </td>
-                      <td>{detection.confidence_score ?? "-"}</td>
+                      <td>
+                        {detection.confidence_score == null
+                          ? "-"
+                          : `${Math.round(detection.confidence_score * 100)}%`}
+                      </td>
                       <td>
                         <select
                           className="status-select"
@@ -189,7 +190,7 @@ function Detections() {
                         </select>
                       </td>
                       <td>{formatTimestamp(detection.detected_at)}</td>
-                      <td className="long-text">
+                      <td className="long-text ai-notes">
                         <div>{detection.ai_reasoning || "-"}</div>
                         {detection.ai_recommendation && (
                           <div className="muted">{detection.ai_recommendation}</div>
@@ -203,7 +204,7 @@ function Detections() {
           </div>
         </section>
       )}
-    </main>
+    </AppShell>
   );
 }
 

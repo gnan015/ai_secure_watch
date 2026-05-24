@@ -53,14 +53,14 @@ Lightweight abuse-prevention checks:
 - GitHub webhook spam: webhook requests remain signature-verified before JSON processing or scan work is queued.
 - Repeated duplicate deliveries: V2 push deliveries reuse `github_delivery_id` and skip existing `running` or `completed` scan events without queueing processors.
 - Discord test alert spam: test alerts remain authenticated and workspace-scoped; disabled webhook records now fail before any outbound Discord request is sent.
-- Excessive repository sync calls: installation repository listing is capped at 500 repositories per sync call.
+- Excessive repository sync calls: installation repository listing uses GitHub pagination with page size 100 and should be monitored for repeated manual sync attempts.
 - Large push payloads: current launch posture is documented monitoring rather than broad request rejection, to avoid changing V1 fallback behavior. Watch Render request size/timeouts and GitHub delivery failure reasons.
-- GitHub API rate limits: repository sync is page-capped; review GitHub API status codes in Render logs and avoid repeated manual sync retries during rate-limit windows.
+- GitHub API rate limits: repository sync is paginated; review GitHub API status codes in Render logs and avoid repeated manual sync retries during rate-limit windows.
 - Gemini/API cost control: V2 processing only runs for monitored repositories, duplicate deliveries are skipped, and scanner/AI behavior is unchanged for this phase.
 
 Code guardrails added:
 
-- `list_installation_repositories` returns at most 500 repositories per sync.
+- `list_installation_repositories` fetches all repositories available to the GitHub App installation using pagination.
 - Discord webhook test rejects disabled webhook records before decrypting/sending.
 - Existing V2 dashboard API list limits remain capped at 100 by FastAPI query validation and service-layer clamping.
 - Existing duplicate-delivery logic remains idempotent for `running` and `completed` scan events.
@@ -82,7 +82,7 @@ Tests added:
 - FastAPI endpoint tests verify invalid V2 filters return `400`.
 - FastAPI endpoint test verifies Discord test endpoint requires authentication.
 - FastAPI endpoint test verifies disabled Discord webhook tests do not send outbound messages.
-- Service test verifies GitHub installation repository sync is capped at 500 repositories.
+- Service test verifies GitHub installation repository sync paginates until GitHub returns a short page.
 
 ## Phase 10.3 Final Launch Checklist
 

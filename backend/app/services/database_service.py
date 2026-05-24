@@ -524,6 +524,26 @@ def get_github_installation_for_workspace(
     return rows[0]
 
 
+def get_github_installations_for_user_workspace(user_id: str) -> list[dict]:
+    """Return safe GitHub App installations for the authenticated user's workspace."""
+    workspace = get_owned_workspace_for_user(user_id)
+    if not workspace:
+        return []
+
+    return _send_supabase_table_request(
+        "github_installations",
+        "GET",
+        query_params={
+            "select": (
+                "id,installation_id,account_login,account_type,app_slug,"
+                "created_at,updated_at"
+            ),
+            "workspace_id": f"eq.{workspace['id']}",
+            "order": "created_at.asc",
+        },
+    )
+
+
 def find_repository_by_installation_and_repo_id(
     installation_id: int, github_repo_id: int
 ) -> dict | None:
@@ -1035,6 +1055,23 @@ def get_discord_webhook_for_user_workspace(
     return rows[0]
 
 
+def list_enabled_discord_webhooks_for_workspace(workspace_id: str) -> list[dict]:
+    """Return enabled Discord webhooks with ciphertext for backend alert sending."""
+    return _send_supabase_table_request(
+        "discord_webhooks",
+        "GET",
+        query_params={
+            "select": (
+                "id,workspace_id,name,webhook_url_ciphertext,webhook_url_last4,"
+                "enabled,last_error"
+            ),
+            "workspace_id": f"eq.{workspace_id}",
+            "enabled": "eq.true",
+            "order": "created_at.asc",
+        },
+    )
+
+
 def update_discord_webhook_for_user_workspace(
     user_id: str,
     webhook_id: str,
@@ -1069,6 +1106,30 @@ def update_discord_webhook_for_user_workspace(
             ),
         },
         payload=payload,
+    )
+    if not rows:
+        return None
+    return rows[0]
+
+
+def update_discord_webhook_alert_status(
+    workspace_id: str,
+    webhook_id: str,
+    last_error: str | None,
+) -> dict | None:
+    """Update backend alert status for a workspace-owned Discord webhook."""
+    rows = _send_supabase_table_request(
+        "discord_webhooks",
+        "PATCH",
+        query_params={
+            "id": f"eq.{webhook_id}",
+            "workspace_id": f"eq.{workspace_id}",
+            "select": "id,workspace_id,last_error,last_tested_at",
+        },
+        payload={
+            "last_tested_at": datetime.now(timezone.utc).isoformat(),
+            "last_error": last_error,
+        },
     )
     if not rows:
         return None

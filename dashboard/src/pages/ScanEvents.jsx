@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 
+import AppShell from "../components/AppShell.jsx";
 import { getV2ScanEvents } from "../services/api.js";
 
 function formatTimestamp(value) {
@@ -50,22 +50,15 @@ function ScanEvents() {
   }
 
   return (
-    <main className="dashboard">
-      <header className="hero">
-        <div>
-          <h1>Scan Events</h1>
-          <p>Recent V2 GitHub App scan activity</p>
-        </div>
-        <div className="header-actions">
-          <Link className="refresh-button" to="/dashboard">Dashboard</Link>
-          <Link className="refresh-button" to="/detections">Detections</Link>
-          <Link className="refresh-button" to="/repositories">Repositories</Link>
-          <Link className="refresh-button" to="/integrations/discord">Discord</Link>
-          <button className="refresh-button" onClick={() => loadScanEvents()}>
-            Refresh
-          </button>
-        </div>
-      </header>
+    <AppShell
+      title="Scan events"
+      description="Recent V2 GitHub App scan activity."
+      actions={
+        <button className="button button-secondary" onClick={() => loadScanEvents()}>
+          Refresh
+        </button>
+      }
+    >
 
       {error && <div className="alert">{error}</div>}
 
@@ -87,9 +80,13 @@ function ScanEvents() {
       {loading ? (
         <div className="loading-state">Loading scan events...</div>
       ) : scanEvents.length === 0 ? (
-        <div className="loading-state">No V2 scan events found.</div>
+        <div className="empty-state">No V2 scan events found.</div>
       ) : (
         <section className="panel">
+          <div className="section-heading">
+            <h2>Scan history</h2>
+            <span className="muted">{scanEvents.length} events</span>
+          </div>
           <div className="table-shell">
             <table className="detection-table">
               <thead>
@@ -107,15 +104,17 @@ function ScanEvents() {
               <tbody>
                 {scanEvents.map((scanEvent) => (
                   <tr key={scanEvent.id}>
-                    <td>{scanEvent.repo_full_name || "-"}</td>
-                    <td>{scanEvent.branch || "-"}</td>
+                    <td className="strong-cell">{scanEvent.repo_full_name || "-"}</td>
+                    <td className="mono">{scanEvent.branch || "-"}</td>
                     <td className="mono">{shortSha(scanEvent.commit_sha)}</td>
                     <td>
                       <span className={`badge badge-${scanEvent.status || "muted"}`}>
                         {scanEvent.status || "unknown"}
                       </span>
                     </td>
-                    <td>{scanEvent.error_message || "-"}</td>
+                    <td className={scanEvent.error_message ? "error-text" : ""}>
+                      {scanEvent.error_message || "-"}
+                    </td>
                     <td>{formatTimestamp(scanEvent.started_at)}</td>
                     <td>{formatTimestamp(scanEvent.completed_at)}</td>
                     <td>{formatTimestamp(scanEvent.created_at)}</td>
@@ -126,7 +125,7 @@ function ScanEvents() {
           </div>
         </section>
       )}
-    </main>
+    </AppShell>
   );
 }
 

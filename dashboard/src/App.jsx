@@ -6,6 +6,7 @@ import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Detections from "./pages/Detections.jsx";
 import DiscordSettings from "./pages/DiscordSettings.jsx";
+import GitHubSetup from "./pages/GitHubSetup.jsx";
 import Login from "./pages/Login.jsx";
 import Repositories from "./pages/Repositories.jsx";
 import ScanEvents from "./pages/ScanEvents.jsx";
@@ -52,6 +53,14 @@ function App() {
           element={
             <ProtectedRoute>
               <DiscordSettings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/github/setup"
+          element={
+            <ProtectedRoute>
+              <GitHubSetup />
             </ProtectedRoute>
           }
         />
