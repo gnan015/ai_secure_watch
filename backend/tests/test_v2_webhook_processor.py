@@ -265,6 +265,8 @@ class V2WebhookProcessorTests(unittest.TestCase):
                     "repo_full_name": "owner/repo",
                     "branch": "main",
                     "commit_shas": ["abc123"],
+                    "pusher_name": "dev",
+                    "pusher_email": "dev@example.com",
                 },
                 v2_repository={
                     "workspace_id": "workspace-1",
@@ -285,6 +287,8 @@ class V2WebhookProcessorTests(unittest.TestCase):
         self.assertNotIn("raw_value", sent_detections[0])
         self.assertNotIn("raw_secret", sent_detections[0])
         self.assertNotIn("secret_value", sent_detections[0])
+        self.assertEqual(sent_detections[0]["pusher_name"], "dev")
+        self.assertEqual(sent_detections[0]["pusher_email"], "dev@example.com")
 
     def test_process_v2_github_push_no_enabled_discord_webhook_does_not_crash(self):
         with (
@@ -446,10 +450,19 @@ class V2WebhookProcessorTests(unittest.TestCase):
                 "https://discord.com/api/webhooks/secret",
                 {
                     "repo_full_name": "owner/repo",
+                    "branch": "main",
                     "severity": "high",
                     "secret_type": "api_key",
                     "masked_value": "sk_l***************cdef",
+                    "detection_method": "regex",
+                    "confidence_score": 0.95,
+                    "ai_reasoning": "Looks like a live key",
+                    "ai_recommendation": "Rotate the key",
+                    "pusher_name": "dev",
+                    "pusher_email": "dev@example.com",
                     "raw_value": "sk_live_123456789abcdef",
+                    "raw_secret": "sk_live_123456789abcdef",
+                    "secret_value": "sk_live_123456789abcdef",
                     "webhook_url_ciphertext": "ciphertext",
                     "file_path": "config.py",
                     "line_number": 1,
@@ -459,9 +472,25 @@ class V2WebhookProcessorTests(unittest.TestCase):
             )
 
         payload = post.call_args.kwargs["json"]
-        self.assertIn("sk_l***************cdef", str(payload))
-        self.assertNotIn("sk_live_123456789abcdef", str(payload))
-        self.assertNotIn("ciphertext", str(payload))
+        self.assertEqual(set(payload.keys()), {"content"})
+        self.assertNotIn("embeds", payload)
+        self.assertIn("⚠️ HIGH Risk Secret Detected", payload["content"])
+        self.assertIn("Severity: HIGH", payload["content"])
+        self.assertIn("Repository: owner/repo", payload["content"])
+        self.assertIn("Branch: main", payload["content"])
+        self.assertIn("File: config.py", payload["content"])
+        self.assertIn("Line: 1", payload["content"])
+        self.assertIn("Secret Type: api_key", payload["content"])
+        self.assertIn("Masked Value: sk_l***************cdef", payload["content"])
+        self.assertIn("Detection Method: regex", payload["content"])
+        self.assertIn("Confidence: 95%", payload["content"])
+        self.assertIn("AI Reason:\nLooks like a live key", payload["content"])
+        self.assertIn("Recommendation:\nRotate the key", payload["content"])
+        self.assertIn("Pusher:\ndev dev@example.com", payload["content"])
+        self.assertIn("Status:\nopen", payload["content"])
+        self.assertLess(len(payload["content"]), 2000)
+        self.assertNotIn("sk_live_123456789abcdef", payload["content"])
+        self.assertNotIn("ciphertext", payload["content"])
 
     def test_create_v2_detections_bulk_filters_raw_secret_fields(self):
         captured_payloads = []

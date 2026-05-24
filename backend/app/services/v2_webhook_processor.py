@@ -45,12 +45,15 @@ def _safe_error_message(exc: Exception) -> str:
 
 
 def _stored_alert_detections(
-    stored_detections: list[dict], detections_to_store: list[dict]
+    stored_detections: list[dict],
+    detections_to_store: list[dict],
+    alert_context: dict | None = None,
 ) -> list[dict]:
     alert_detections: list[dict] = []
+    context = alert_context or {}
     for index, detection in enumerate(detections_to_store):
         stored = stored_detections[index] if index < len(stored_detections) else {}
-        alert_detections.append({**detection, **stored})
+        alert_detections.append({**detection, **stored, **context})
     return alert_detections
 
 
@@ -220,7 +223,14 @@ def process_v2_github_push(
 
         _send_v2_discord_alerts(
             workspace_id=v2_repository["workspace_id"],
-            detections=_stored_alert_detections(stored_detections, detections_to_store),
+            detections=_stored_alert_detections(
+                stored_detections,
+                detections_to_store,
+                {
+                    "pusher_name": parsed_data.get("pusher_name"),
+                    "pusher_email": parsed_data.get("pusher_email"),
+                },
+            ),
         )
 
         update_scan_event_status(

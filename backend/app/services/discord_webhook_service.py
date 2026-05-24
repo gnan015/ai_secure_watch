@@ -73,59 +73,71 @@ def send_test_webhook_message(webhook_url: str, workspace_name: str | None = Non
         ) from exc
 
 
+def _text_value(value: object, fallback: str = "unknown") -> str:
+    if value is None or value == "":
+        return fallback
+    return str(value)
+
+
+def _truncate_text(value: object, max_length: int) -> str:
+    text = _text_value(value, "")
+    if len(text) <= max_length:
+        return text
+    return f"{text[: max_length - 3]}..."
+
+
+def _confidence_percent(value: object) -> str:
+    try:
+        confidence = float(value)
+    except (TypeError, ValueError):
+        return "unknown"
+    if confidence <= 1:
+        confidence *= 100
+    return f"{round(confidence)}%"
+
+
+def _plain_detection_alert_content(detection: dict) -> str:
+    severity = _text_value(detection.get("severity")).upper()
+    branch = _text_value(detection.get("branch"))
+    file_path = _text_value(detection.get("file_path"))
+    line_number = _text_value(detection.get("line_number"))
+    ai_reason = _truncate_text(detection.get("ai_reasoning"), 500)
+    recommendation = _truncate_text(detection.get("ai_recommendation"), 700)
+    pusher_name = _text_value(detection.get("pusher_name"), "")
+    pusher_email = _text_value(detection.get("pusher_email"), "")
+    pusher = " ".join(part for part in [pusher_name, pusher_email] if part).strip()
+
+    sections = [
+        f"⚠️ {severity} Risk Secret Detected",
+        (
+            f"Severity: {severity}\n"
+            f"Repository: {_text_value(detection.get('repo_full_name'))}\n"
+            f"Branch: {branch}\n"
+            f"File: {file_path}\n"
+            f"Line: {line_number}\n"
+            f"Secret Type: {_text_value(detection.get('secret_type'))}\n"
+            f"Masked Value: {_text_value(detection.get('masked_value'), 'masked')}\n"
+            f"Detection Method: {_text_value(detection.get('detection_method'))}\n"
+            f"Confidence: {_confidence_percent(detection.get('confidence_score'))}"
+        ),
+    ]
+
+    if ai_reason:
+        sections.append(f"AI Reason:\n{ai_reason}")
+    if recommendation:
+        sections.append(f"Recommendation:\n{recommendation}")
+    if pusher:
+        sections.append(f"Pusher:\n{pusher}")
+
+    sections.append(f"Status:\n{_text_value(detection.get('status'), 'open')}")
+    content = "\n\n".join(sections)
+    if len(content) <= 1900:
+        return content
+    return f"{content[:1897]}..."
+
+
 def _safe_detection_alert_payload(detection: dict) -> dict:
-    return {
-        "content": "AI SecureWatch detected a potential secret exposure.",
-        "embeds": [
-            {
-                "title": "Secret detection",
-                "color": 0xDA3633
-                if detection.get("severity") == "critical"
-                else 0xD29922,
-                "fields": [
-                    {
-                        "name": "Repository",
-                        "value": detection.get("repo_full_name") or "unknown",
-                        "inline": True,
-                    },
-                    {
-                        "name": "Severity",
-                        "value": detection.get("severity") or "unknown",
-                        "inline": True,
-                    },
-                    {
-                        "name": "Secret type",
-                        "value": detection.get("secret_type") or "unknown",
-                        "inline": True,
-                    },
-                    {
-                        "name": "Masked value",
-                        "value": detection.get("masked_value") or "masked",
-                        "inline": False,
-                    },
-                    {
-                        "name": "Location",
-                        "value": (
-                            f"{detection.get('file_path') or 'unknown'}:"
-                            f"{detection.get('line_number') or 'unknown'}"
-                        ),
-                        "inline": False,
-                    },
-                    {
-                        "name": "Commit",
-                        "value": detection.get("commit_sha") or "unknown",
-                        "inline": True,
-                    },
-                    {
-                        "name": "Status",
-                        "value": detection.get("status") or "open",
-                        "inline": True,
-                    },
-                ],
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            }
-        ],
-    }
+    return {"content": _plain_detection_alert_content(detection)}
 
 
 def send_detection_alert(webhook_url: str, detection: dict) -> None:
