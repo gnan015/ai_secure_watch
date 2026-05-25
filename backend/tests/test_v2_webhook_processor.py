@@ -32,6 +32,8 @@ class V2WebhookProcessorTests(unittest.TestCase):
                     "files": [
                         {
                             "filename": "config.py",
+                            "status": "modified",
+                            "changes": 1,
                             "patch": '@@ -1,1 +1,1 @@\n+API_KEY = "sk_live_123456789abcdef"\n',
                         }
                     ],
@@ -150,6 +152,8 @@ class V2WebhookProcessorTests(unittest.TestCase):
                     "files": [
                         {
                             "filename": "config.py",
+                            "status": "modified",
+                            "changes": 1,
                             "patch": '@@ -1,1 +1,1 @@\n+API_KEY = "sk_live_123456789abcdef"\n',
                         }
                     ],
@@ -217,6 +221,8 @@ class V2WebhookProcessorTests(unittest.TestCase):
                     "files": [
                         {
                             "filename": "config.py",
+                            "status": "modified",
+                            "changes": 1,
                             "patch": '@@ -1,1 +1,1 @@\n+API_KEY = "sk_live_123456789abcdef"\n',
                         }
                     ],
@@ -290,6 +296,149 @@ class V2WebhookProcessorTests(unittest.TestCase):
         self.assertEqual(sent_detections[0]["pusher_name"], "dev")
         self.assertEqual(sent_detections[0]["pusher_email"], "dev@example.com")
 
+    def test_process_v2_github_push_scans_only_deduplicated_supported_changed_files(self):
+        stored_payloads = []
+
+        def fake_store(payloads):
+            stored_payloads.extend(payloads)
+            return [{"id": f"detection-{index}"} for index, _ in enumerate(payloads)]
+
+        def fake_commit_diff(repo_full_name, commit_sha, access_token):
+            self.assertEqual(repo_full_name, "owner/repo")
+            self.assertEqual(access_token, "installation-token")
+            if commit_sha == "abc123":
+                return {
+                    "commit_sha": commit_sha,
+                    "files": [
+                        {
+                            "filename": "config.py",
+                            "status": "modified",
+                            "changes": 1,
+                            "patch": '@@ -1,1 +1,1 @@\n+API_KEY = "sk_live_123456789abcdef"\n',
+                        },
+                        {
+                            "filename": "removed.py",
+                            "status": "removed",
+                            "changes": 1,
+                            "patch": '@@ -1,1 +0,0 @@\n-API_KEY = "sk_live_removed_secret"\n',
+                        },
+                        {
+                            "filename": "unchanged.py",
+                            "status": "modified",
+                            "changes": 1,
+                            "patch": '@@ -1,1 +1,1 @@\n+API_KEY = "sk_live_unchanged_secret"\n',
+                        },
+                        {
+                            "filename": "package-lock.json",
+                            "status": "modified",
+                            "changes": 1,
+                            "patch": '@@ -1,1 +1,1 @@\n+API_KEY = "sk_live_lockfile_secret"\n',
+                        },
+                        {
+                            "filename": "dist/bundle.js",
+                            "status": "modified",
+                            "changes": 1,
+                            "patch": '@@ -1,1 +1,1 @@\n+API_KEY = "sk_live_dist_secret"\n',
+                        },
+                        {
+                            "filename": "assets/logo.png",
+                            "status": "modified",
+                            "changes": 1,
+                            "patch": '@@ -1,1 +1,1 @@\n+API_KEY = "sk_live_image_secret"\n',
+                        },
+                        {
+                            "filename": "large.py",
+                            "status": "modified",
+                            "changes": 5001,
+                            "patch": '@@ -1,1 +1,1 @@\n+API_KEY = "sk_live_large_secret"\n',
+                        },
+                    ],
+                }
+            return {
+                "commit_sha": commit_sha,
+                "files": [
+                    {
+                        "filename": "config.py",
+                        "status": "modified",
+                        "changes": 1,
+                        "patch": '@@ -1,1 +1,1 @@\n+API_KEY = "sk_live_duplicate_secret"\n',
+                    }
+                ],
+            }
+
+        with (
+            patch(
+                "app.services.v2_webhook_processor.get_installation_access_token",
+                return_value={"token": "installation-token"},
+            ),
+            patch(
+                "app.services.v2_webhook_processor.fetch_commit_diff_with_token",
+                side_effect=fake_commit_diff,
+            ) as fetch_diff,
+            patch(
+                "app.services.v2_webhook_processor.analyze_secret_with_ai",
+                return_value={
+                    "is_risky": True,
+                    "risk_level": "HIGH",
+                    "confidence_score": 0.91,
+                    "reason": "Looks like a live key",
+                    "recommendation": "Rotate the key",
+                },
+            ),
+            patch(
+                "app.services.v2_webhook_processor.create_v2_detections_bulk",
+                side_effect=fake_store,
+            ),
+            patch(
+                "app.services.v2_webhook_processor.list_enabled_discord_webhooks_for_workspace",
+                return_value=[
+                    {
+                        "id": "webhook-1",
+                        "workspace_id": "workspace-1",
+                        "webhook_url_ciphertext": "ciphertext",
+                    }
+                ],
+            ),
+            patch(
+                "app.services.v2_webhook_processor.decrypt_webhook_url",
+                return_value="https://discord.com/api/webhooks/secret",
+            ),
+            patch("app.services.v2_webhook_processor.send_detection_alert") as send_alert,
+            patch("app.services.v2_webhook_processor.update_discord_webhook_alert_status"),
+            patch("app.services.v2_webhook_processor.update_scan_event_status"),
+        ):
+            process_v2_github_push(
+                scan_event={"id": "scan-event-1"},
+                parsed_data={
+                    "repo_full_name": "owner/repo",
+                    "branch": "main",
+                    "commit_shas": ["abc123", "def456"],
+                    "added_files": ["config.py"],
+                    "modified_files": ["config.py", "package-lock.json", "large.py"],
+                    "removed_files": ["removed.py"],
+                },
+                v2_repository={
+                    "workspace_id": "workspace-1",
+                    "repository_id": "repository-1",
+                    "full_name": "owner/repo",
+                    "github_installation_id": 12345,
+                },
+            )
+
+        self.assertEqual(fetch_diff.call_count, 2)
+        self.assertEqual(len(stored_payloads), 1)
+        self.assertEqual(stored_payloads[0]["file_path"], "config.py")
+        self.assertEqual(stored_payloads[0]["masked_value"], "sk_l***************cdef")
+        stored_as_text = str(stored_payloads)
+        self.assertNotIn("removed.py", stored_as_text)
+        self.assertNotIn("unchanged.py", stored_as_text)
+        self.assertNotIn("package-lock.json", stored_as_text)
+        self.assertNotIn("dist/bundle.js", stored_as_text)
+        self.assertNotIn("assets/logo.png", stored_as_text)
+        self.assertNotIn("large.py", stored_as_text)
+        self.assertNotIn("sk_live_duplicate_secret", stored_as_text)
+        send_alert.assert_called_once()
+
     def test_process_v2_github_push_no_enabled_discord_webhook_does_not_crash(self):
         with (
             patch(
@@ -303,6 +452,8 @@ class V2WebhookProcessorTests(unittest.TestCase):
                     "files": [
                         {
                             "filename": "config.py",
+                            "status": "modified",
+                            "changes": 1,
                             "patch": '@@ -1,1 +1,1 @@\n+API_KEY = "sk_live_123456789abcdef"\n',
                         }
                     ],
@@ -368,6 +519,8 @@ class V2WebhookProcessorTests(unittest.TestCase):
                     "files": [
                         {
                             "filename": "config.py",
+                            "status": "modified",
+                            "changes": 1,
                             "patch": '@@ -1,1 +1,1 @@\n+API_KEY = "sk_live_123456789abcdef"\n',
                         }
                     ],

@@ -16,7 +16,12 @@ from app.services.discord_webhook_service import (
     send_detection_alert,
 )
 from app.services.github_app_service import get_installation_access_token
-from app.services.github_service import extract_added_lines, fetch_commit_diff_with_token
+from app.services.github_service import (
+    changed_paths_from_push_payload,
+    extract_added_lines,
+    fetch_commit_diff_with_token,
+    filter_scannable_changed_files,
+)
 from app.services.scanner_service import scan_added_lines
 from app.utils.safe_logging import log_safe
 
@@ -137,6 +142,8 @@ def process_v2_github_push(
     scan_event_id = scan_event["id"]
     repo_full_name = parsed_data.get("repo_full_name") or v2_repository.get("full_name")
     commit_shas = parsed_data.get("commit_shas", [])
+    changed_paths = changed_paths_from_push_payload(parsed_data)
+    scanned_paths: set[str] = set()
 
     print("Starting V2 GitHub App push processing")
     print(f"Scan event: {scan_event_id}")
@@ -170,11 +177,22 @@ def process_v2_github_push(
                 access_token=access_token,
             )
             changed_files = diff_data.get("files", [])
-            added_lines = extract_added_lines(changed_files)
+            scannable_files = filter_scannable_changed_files(
+                changed_files,
+                allowed_paths=changed_paths,
+            )
+            scannable_files = [
+                file_data
+                for file_data in scannable_files
+                if file_data.get("filename") not in scanned_paths
+            ]
+            scanned_paths.update(file_data["filename"] for file_data in scannable_files)
+            added_lines = extract_added_lines(scannable_files)
             detected_secrets = scan_added_lines(added_lines)
             detections_found += len(detected_secrets)
 
             print(f"V2 changed files found: {len(changed_files)}")
+            print(f"V2 scannable changed files: {len(scannable_files)}")
             print(f"V2 added lines extracted: {len(added_lines)}")
             print(f"V2 potential secrets found: {len(detected_secrets)}")
 

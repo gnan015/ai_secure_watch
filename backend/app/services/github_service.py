@@ -7,6 +7,107 @@ from app.config import settings
 
 
 HUNK_HEADER_PATTERN = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
+MAX_PATCH_BYTES = 200_000
+MAX_FILE_CHANGES = 5_000
+SCANNABLE_FILE_STATUSES = {"added", "modified"}
+SKIPPED_PATH_PARTS = {
+    ".git",
+    ".next",
+    "build",
+    "coverage",
+    "dist",
+    "node_modules",
+}
+SKIPPED_FILE_NAMES = {
+    "cargo.lock",
+    "composer.lock",
+    "gemfile.lock",
+    "package-lock.json",
+    "pipfile.lock",
+    "pnpm-lock.yaml",
+    "poetry.lock",
+    "yarn.lock",
+}
+SKIPPED_EXTENSIONS = {
+    ".avif",
+    ".bmp",
+    ".dll",
+    ".exe",
+    ".gif",
+    ".ico",
+    ".jpeg",
+    ".jpg",
+    ".lock",
+    ".pdf",
+    ".png",
+    ".so",
+    ".svg",
+    ".webp",
+    ".zip",
+}
+
+
+def is_scannable_changed_file(file_data: dict) -> bool:
+    """Return True when a GitHub changed-file patch is safe and useful to scan."""
+    filename = str(file_data.get("filename") or "")
+    if not filename or filename == "unknown":
+        return False
+
+    normalized = filename.replace("\\", "/").lower()
+    path_parts = {part for part in normalized.split("/") if part}
+    basename = normalized.rsplit("/", 1)[-1]
+
+    if path_parts & SKIPPED_PATH_PARTS:
+        return False
+    if basename in SKIPPED_FILE_NAMES:
+        return False
+    if any(normalized.endswith(extension) for extension in SKIPPED_EXTENSIONS):
+        return False
+    if file_data.get("status") not in SCANNABLE_FILE_STATUSES:
+        return False
+    if int(file_data.get("changes") or 0) > MAX_FILE_CHANGES:
+        return False
+
+    patch = file_data.get("patch")
+    if not patch or len(patch.encode("utf-8")) > MAX_PATCH_BYTES:
+        return False
+
+    return True
+
+
+def filter_scannable_changed_files(
+    files: list[dict], allowed_paths: set[str] | None = None
+) -> list[dict]:
+    """Keep only deduplicated, scannable changed files from a commit response."""
+    filtered = []
+    seen_paths: set[str] = set()
+    normalized_allowed_paths = (
+        {path.replace("\\", "/") for path in allowed_paths} if allowed_paths else None
+    )
+
+    for file_data in files:
+        filename = str(file_data.get("filename") or "").replace("\\", "/")
+        if filename in seen_paths:
+            continue
+        if normalized_allowed_paths is not None and filename not in normalized_allowed_paths:
+            continue
+        if not is_scannable_changed_file(file_data):
+            continue
+
+        seen_paths.add(filename)
+        filtered.append(file_data)
+
+    return filtered
+
+
+def changed_paths_from_push_payload(parsed_data: dict) -> set[str]:
+    """Return deduplicated added/modified paths from parsed push payload data."""
+    changed_paths: set[str] = set()
+    for key in ("added_files", "modified_files"):
+        for path in parsed_data.get(key) or []:
+            if path:
+                changed_paths.add(str(path).replace("\\", "/"))
+    return changed_paths
 
 
 def fetch_commit_diff(repo_full_name: str, commit_sha: str) -> dict:
