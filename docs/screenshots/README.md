@@ -1,14 +1,12 @@
 # Screenshots
 
-Add project screenshots in this folder before sharing the repository publicly.
+Project screenshots used by the root README live in this folder.
 
-Suggested files:
+Current files:
 
 - `dashboard-overview.png`
-- `detections-table.png`
-- `repositories.png`
-- `discord-settings.png`
 - `scan-events.png`
-- `github-setup.png`
+- `n8n-workflow.png`
+- `discord-alert.png`
 
 Do not include screenshots that reveal real secrets, webhook URLs, private repository data, service role keys, JWTs, installation tokens, or unmasked detection values.

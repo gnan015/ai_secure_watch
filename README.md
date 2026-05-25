@@ -240,16 +240,35 @@ Backend-only secrets must never be placed in the dashboard environment.
 
 ## Screenshots
 
-Screenshots should be placed in [`docs/screenshots`](docs/screenshots/). Placeholder notes are already included there so the folder is visible in Git.
+The screenshots below show the current AI SecureWatch workflow using masked, safe data only.
 
-Recommended screenshots:
+### Dashboard Overview
 
-- `dashboard-overview.png` - summary cards, charts, and recent detections.
-- `detections-table.png` - filtered detections with masked values and status controls.
-- `repositories.png` - synced repositories with monitoring toggles.
-- `discord-settings.png` - masked Discord webhook settings and test action.
-- `scan-events.png` - recent scan event history.
-- `github-setup.png` - GitHub App installation/setup flow.
+![Dashboard Overview](docs/screenshots/dashboard-overview.png)
+
+Shows the main dashboard with summary cards, trend data, severity breakdown, and recent detection activity.
+This view helps reviewers understand the security status of monitored repositories at a glance.
+
+### Scan Events
+
+![Scan Events](docs/screenshots/scan-events.png)
+
+Shows recent scan jobs created from GitHub push events, including status and repository context.
+This helps verify that webhook deliveries are being processed and tracked.
+
+### n8n Workflow
+
+![n8n Workflow](docs/screenshots/n8n-workflow.png)
+
+Shows the automation workflow used to route safe detection payloads after AI SecureWatch finds a risky secret.
+The workflow keeps alerting separated from the scanning backend.
+
+### Discord Alert
+
+![Discord Alert](docs/screenshots/discord-alert.png)
+
+Shows the Discord notification format with detection details and masked secret values.
+Alerts are designed for quick triage without exposing raw credentials.
 
 ## Demo Workflow
 
