@@ -6,7 +6,7 @@
 [![Security](https://img.shields.io/badge/Security-secret%20scanning-blue)](#features)
 [![Status](https://img.shields.io/badge/Status-V2%20MVP%20complete-brightgreen)](#features)
 
-## 3-Line Description
+## Description
 
 AI SecureWatch is a GitHub credential leak detection platform for finding exposed secrets in newly pushed code.
 It verifies GitHub webhooks, scans added lines, masks sensitive values, and enriches detections with AI risk analysis.
