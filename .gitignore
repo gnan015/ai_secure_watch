@@ -59,3 +59,8 @@ temp/
 *.temp
 *.bak
 *.orig
+
+# Keep README screenshots, ignore other docs drafts locally
+docs/*
+!docs/screenshots/
+!docs/screenshots/**

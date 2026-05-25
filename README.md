@@ -4,7 +4,7 @@
 [![React](https://img.shields.io/badge/React-dashboard-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![Supabase](https://img.shields.io/badge/Supabase-auth%20%26%20database-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
 [![Security](https://img.shields.io/badge/Security-secret%20scanning-blue)](#features)
-[![Status](https://img.shields.io/badge/Status-V2%20MVP%20complete-brightgreen)](docs/V2_ROADMAP.md)
+[![Status](https://img.shields.io/badge/Status-V2%20MVP%20complete-brightgreen)](#features)
 
 ## 3-Line Description
 
@@ -33,7 +33,7 @@ AI SecureWatch reduces that risk by monitoring GitHub push events, scanning only
 - Encrypted per-workspace Discord webhook management with test alerts.
 - V1 fallback path for legacy webhook scanning.
 - React dashboard with summary cards, charts, recent detections, filters, status updates, repository management, scan events, GitHub setup, and Discord settings.
-- Production readiness docs, deployment checklist, launch hardening notes, and test coverage for safety boundaries.
+- Production checklist, test report, and safety-focused test coverage.
 
 ## Tech Stack
 
@@ -107,7 +107,6 @@ React dashboard displays overview, scan events, detections, and actions
 |   |-- package.json
 |   |-- vite.config.js
 |   `-- README.md
-|-- docs/                        # V2 architecture, roadmap, phase notes, launch hardening
 |-- docs/screenshots/            # Add project screenshots here
 |-- DEPLOYMENT_CHECKLIST.md
 |-- TEST_REPORT.md
@@ -296,11 +295,8 @@ Alerts are designed for quick triage without exposing raw credentials.
 
 - [Backend README](backend/README.md)
 - [Dashboard README](dashboard/README.md)
-- [V2 Architecture](docs/V2_ARCHITECTURE.md)
-- [V2 Roadmap](docs/V2_ROADMAP.md)
 - [Deployment Checklist](DEPLOYMENT_CHECKLIST.md)
 - [Test Report](TEST_REPORT.md)
-- [Launch Hardening](docs/V2_PHASE_10_LAUNCH_HARDENING.md)
 
 ## Future Improvements
 
