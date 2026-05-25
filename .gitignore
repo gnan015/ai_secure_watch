@@ -24,14 +24,38 @@ ai_securewatch_test_*.py
 .idea/
 .DS_Store
 Thumbs.db
+*.swp
+*.swo
+*~
 
 # Test and tooling caches
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+coverage/
+.coverage
+htmlcov/
 
 # Frontend
 node_modules/
 dashboard/node_modules/
 dist/
 dashboard/dist/
+build/
+dashboard/build/
+
+# Logs and temporary files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+tmp/
+temp/
+.tmp/
+.temp/
+.cache/
+*.tmp
+*.temp
+*.bak
+*.orig
